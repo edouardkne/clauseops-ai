@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# ClauseOps AI - Phase 1
 
-## Getting Started
+From legal obligations to executable compliance.
 
-First, run the development server:
+A responsive LegalTech / RegTech frontend for the BLI Legal Tech Hackathon 2. Built with the existing Next.js App Router, React, TypeScript, Tailwind CSS, and ESLint; no runtime dependencies were added.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Development
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Run `npm install`, then `npm run dev`. Open http://localhost:3000.
+Run `npm run lint` and `npm run build` for production checks, then `npm start` to serve the production build. On Windows PowerShell with restricted script execution, use `npm.cmd`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Landing, dashboard, contracts list and details, upload preview, obligations list and details, calendar agenda, evidence vault, scripted assistant, reports, and read-only settings. All sample contract and obligation links have corresponding detail pages. Unknown record IDs return 404.
 
-## Learn More
+## Structure
 
-To learn more about Next.js, take a look at the following resources:
+- `app/(workspace)`: shared application layout and route pages
+- `components`: navigation, badges, cards, tables, feature views, and local interactions
+- `types/index.ts`: domain types
+- `mock-data/index.ts`: central fictional records, derived metrics, scripted assistant answers
+- `lib/format.ts`: timezone-stable date formatting
+- `app/globals.css`: design tokens, Tailwind import, component styles, responsive rules
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Demo boundaries
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Source, AI interpretation, compliance state, and verification remain distinct. The fixed snapshot is 20 September 2026. All organisations, people, source excerpts, and records are fictional. Owners and confidence are illustrative. Obligation #7 has an internal review target because its source does not establish a contractual deadline.
 
-## Deploy on Vercel
+Readiness = completed obligations / total obligations. Pending includes all unfinished obligations except overdue. Evidence readiness = obligations with reviewed demo evidence / total obligations. Reviewed describes a sample human review, not independent verification.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+File selection only checks extension and size and displays filename and size. No contents are read, uploaded, analysed, or persisted. Fictional evidence records have no downloadable files. The assistant uses prepared answers and a clear fallback for unsupported questions.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No authentication, database, backend integration, document processing, AI provider, PDF export, or Chainlink CRE integration is connected. No secrets or environment variables are needed.
+
+ClauseOps assists with obligation tracking and compliance operations. It does not provide legal advice.
+
+## Browser verification
+
+`scripts/verify-ui.mjs` uses Node's built-in WebSocket and Chrome DevTools Protocol. Start the production application on port 3000 and headless Chromium on debugging port 9222 with a dedicated local profile, then run `node scripts/verify-ui.mjs`. Screenshots and results are saved in ignored `.qa/`.
+
+Checks cover routes, responsive overflow, local table scrolling, mobile navigation, search, filters, tabs, scripted chat, and preview feedback. This is supplementary browser verification, not a full accessibility audit.
