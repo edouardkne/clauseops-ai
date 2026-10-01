@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { fixturePdf } from "./pdf-fixture.mjs";
+import { resolve } from "node:path";
 
-const origin = "http://localhost:3000";
+const origin = process.env.CLAUSEOPS_TEST_ORIGIN || "http://localhost:3000";
 const targets = await fetch("http://localhost:9222/json").then(r => r.json());
 const target = targets.find(t => t.type === "page");
 if (!target) throw new Error("Start headless Chromium on debugging port 9222 first.");
@@ -108,14 +110,20 @@ await textInput('#assistant-question', "Can you analyse my new contract?");
 await click('button[aria-label="Send question"]');
 assert(await evaluate("document.querySelector('[role=log]').textContent.includes('cannot analyse new questions')"), "Unsupported assistant question fallback");
 await navigate("/contracts/upload");
-await evaluate("(() => { const transfer = new DataTransfer(); transfer.items.add(new File(['fictional sample'], 'Sample.pdf', {type:'application/pdf'})); const input = document.querySelector('input[type=file]'); input.files = transfer.files; input.dispatchEvent(new Event('change', {bubbles:true})); })()");
-await pause(200);
-assert(await evaluate("document.querySelector('.selected-file')?.textContent.includes('No file was uploaded')"), "File selection is local only");
+await writeFile(".qa/Sample.pdf", fixturePdf());
+const { root } = await command("DOM.getDocument");
+const { nodeId } = await command("DOM.querySelector", { nodeId: root.nodeId, selector: 'input[type=file]' });
+await command("DOM.setFileInputFiles", { nodeId, files: [resolve(".qa/Sample.pdf")] });
+for (let attempt = 0; attempt < 200; attempt++) {
+  if (await evaluate("document.body.textContent.includes('PDF text extracted locally')")) break;
+  await pause(100);
+}
+assert(await evaluate("document.body.textContent.includes('PDF text extracted locally')"), "Real PDF text extracts locally without an AI request");
 await click('button[aria-label="Remove selected file"]');
 assert(await evaluate("!document.querySelector('.selected-file')"), "Selected file can be removed");
 await evaluate("(() => { const transfer = new DataTransfer(); transfer.items.add(new File(['bad'], 'Sample.exe')); const input = document.querySelector('input[type=file]'); input.files = transfer.files; input.dispatchEvent(new Event('change', {bubbles:true})); })()");
 await pause(200);
-assert(await evaluate("document.querySelector('[role=alert]')?.textContent.includes('supported file')"), "Unsupported file type rejected");
+assert(await evaluate("document.querySelector('[role=alert]')?.textContent.includes('PDF documents only')"), "Unsupported file type rejected");
 await navigate("/evidence");
 await click('.heading-action button');
 assert(await evaluate("!!document.querySelector('#evidence-upload')"), "Evidence upload preview opens");

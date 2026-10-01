@@ -64,7 +64,7 @@ export function AppHeader({ open, toggle }: {
     </div>
     <div className="header-right">
       <span className="demo-pill">
-        <span /> Demo mode</span>
+        <span /> {path === "/contracts/upload" ? "Session analysis" : "Demo mode"}</span>
       <span className="header-divider" />
       <span className="avatar small">AO</span>
     </div>
@@ -83,7 +83,7 @@ export function AppShell({ children }: {
       <main id="main-content" className="app-main">{children}</main>
       <footer className="app-footer">
         <span>{disclaimer}</span>
-        <span>Phase 1 · Frontend demo</span>
+        <span>Phase 2A · Session analysis & demo workspace</span>
       </footer>
     </div>
   </div>;
