@@ -64,78 +64,118 @@ async function reply(status, body) {
   await pause(300);
 }
 const obligation = {
-  id: "f31dd766-f761-4e52-a649-1259bd7b5d42", title: "Submit monthly report", description: "Prepare the required monthly report.",
-  action: "Submit the report to the customer.", responsibleParty: "Supplier", category: "reporting", deadlineText: null,
-  recurrence: "Monthly", evidenceRequired: [], confidence: "direct", needsHumanReview: false, reviewReason: null,
-  source: { pageNumber: 1, quote: "The Supplier shall submit a monthly report." }, sourceVerified: true,
+  id: "f31dd766-f761-4e52-a649-1259bd7b5d42", title: "Pay the supplier invoice", description: "Pay the invoice after review.",
+  action: "Pay the invoice.", responsibleParty: "Customer", category: "payment", deadlineText: null,
+  recurrence: null, evidenceRequired: [], confidence: "direct", needsHumanReview: false, reviewReason: null,
+  source: { pageNumber: 1, quote: "Payment is due within 30 days of invoice receipt." }, sourceVerified: true,
 };
 const analysis = {
-  documentTitle: "Supplier Service Agreement", documentType: "Service agreement", language: "English",
-  parties: ["Acme Supplier", "Cedar Customer"], summary: "A synthetic agreement used only to verify the interface.", warnings: [],
-  obligations: [obligation, { ...obligation, id: "17d99272-220f-4e6d-b279-7b81f5bf3c17", title: "Unverified interpretation example", confidence: "uncertain", needsHumanReview: true, sourceVerified: false, reviewReason: "The supporting quote could not be matched to the cited page.", source: { pageNumber: 1, quote: "An unmatched quote for interface verification." } }],
+  documentTitle: "Synthetic Contract Intelligence", documentType: "Service agreement", language: "English",
+  parties: ["Customer", "Supplier"], summary: "Synthetic fixture for Phase 2B browser checks only.", warnings: [],
+  obligations: [obligation,
+    { ...obligation, id: "17d99272-220f-4e6d-b279-7b81f5bf3c17", title: "Submit monthly report", category: "reporting", responsibleParty: "Supplier", confidence: "inferred", deadlineText: "within 30 days of notice", evidenceRequired: ["Report"], source: { pageNumber: 1, quote: "The Supplier shall submit a monthly report." } },
+    { ...obligation, id: "17d99272-220f-4e6d-b279-7b81f5bf3c18", title: "Unverified interpretation", category: "data_protection", confidence: "uncertain", responsibleParty: null, sourceVerified: false, source: { pageNumber: 1, quote: "Unmatched synthetic quote." } },
+  ],
 };
+async function clickText(text) {
+  await evaluate(`Array.from(document.querySelectorAll('button,a')).find(element => element.textContent.includes(${JSON.stringify(text)})).click()`);
+  await pause(250);
+}
+async function selectPdf(filename) {
+  const { root } = await command("DOM.getDocument");
+  const { nodeId } = await command("DOM.querySelector", { nodeId: root.nodeId, selector: "input[type=file]" });
+  await command("DOM.setFileInputFiles", { nodeId, files: [] });
+  await command("DOM.setFileInputFiles", { nodeId, files: [resolve(filename)] });
+  await until("document.body.textContent.includes('PDF text extracted locally')");
+}
+async function metric(label) {
+  return evaluate(`Array.from(document.querySelectorAll('.analysis-counts > div')).find(div => div.querySelector('dt').textContent === ${JSON.stringify(label)})?.querySelector('dd').textContent`);
+}
 await mkdir(".qa", { recursive: true });
-await writeFile(".qa/Analysis-Sample.pdf", fixturePdf());
+await writeFile(".qa/Intelligence-Sample.pdf", fixturePdf());
+await writeFile(".qa/Different-Sample.pdf", fixturePdf());
 await command("Page.enable");
 await command("Runtime.enable");
-// Every analysis request is intercepted before it can reach the server/provider.
 await command("Fetch.enable", { patterns: [{ urlPattern: "*/api/analyze-contract", requestStage: "Request" }] });
 try {
   for (const width of [1440, 390, 320]) {
     await command("Emulation.setDeviceMetricsOverride", { width, height: 1000, deviceScaleFactor: 1, mobile: false });
     await command("Page.navigate", { url: `${origin}/contracts/upload` });
     await until("document.readyState === 'complete' && !!document.querySelector('input[type=file]')");
-    await pause(500);
-    const beforeExtraction = apiCalls;
-    const { root } = await command("DOM.getDocument");
-    const { nodeId } = await command("DOM.querySelector", { nodeId: root.nodeId, selector: "input[type=file]" });
-    await command("DOM.setFileInputFiles", { nodeId, files: [resolve(".qa/Analysis-Sample.pdf")] });
-    await until("document.body.textContent.includes('PDF text extracted locally')");
-    check(apiCalls === beforeExtraction, `${width}: extraction sends no AI request`);
-    await evaluate("document.querySelector('.extracted-preview').open = true");
-    check(await evaluate("document.querySelector('.extracted-preview').textContent.includes('monthly report')"), `${width}: actual PDF page text preserved`);
+    await pause(400);
+    const baseline = apiCalls;
+    await selectPdf(".qa/Intelligence-Sample.pdf");
+    check(apiCalls === baseline, `${width}: no AI activity on render or extraction`);
     const intercepted = await submit();
     const payload = JSON.parse(intercepted.request.postData);
-    check(JSON.stringify(Object.keys(payload).sort()) === JSON.stringify(["filename", "pages"]), `${width}: request has only filename and pages`);
-    check(payload.pages.every(p => Object.keys(p).sort().join() === "pageNumber,text"), `${width}: page payload excludes PDF binary and client analysis`);
-    check(await evaluate("Array.from(document.querySelectorAll('button')).some(b => b.disabled && b.textContent.includes('Analysing'))"), `${width}: visible loading state disables submit`);
-    const count = apiCalls;
+    check(Object.keys(payload).sort().join() === "filename,pages" && payload.pages.every(page => Object.keys(page).sort().join() === "pageNumber,text"), `${width}: only filename and page text transmitted`);
     await evaluate("Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Analysing')).click()");
-    await pause(200);
-    check(apiCalls === count, `${width}: duplicate submission blocked`);
-    await screenshot(`analysis-loading-${width}`);
-    await reply(503, { error: "Sanitized mock failure" });
-    check(await evaluate("document.querySelector('[role=alert]')?.textContent.includes('unavailable')"), `${width}: API error visible`);
-    check(await evaluate("!!document.querySelector('.extracted-preview')"), `${width}: preview survives error`);
-    await submit();
-    await reply(200, { analysis: { ...analysis, obligations: [], warnings: ["No operational obligations found."] } });
-    await until("!!document.querySelector('.analysis-result')");
-    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('No operational obligations identified')"), `${width}: zero-obligation success state`);
-    await screenshot(`analysis-empty-${width}`);
-    await submit();
+    check(apiCalls === baseline + 1, `${width}: in-flight duplicate blocked`);
     await reply(200, { analysis });
-    await until("document.querySelectorAll('.analysis-obligation').length === 2");
-    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('Quote matched to page') && document.querySelector('.analysis-result').textContent.includes('Quote not verified')"), `${width}: source verification states displayed`);
-    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('Uncertain') && document.querySelector('.analysis-result').textContent.includes('Needs Review')"), `${width}: ambiguity and review explicit`);
-    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('SOURCE') && document.querySelector('.analysis-result').textContent.includes('AI INTERPRETATION') && document.querySelector('.analysis-result').textContent.includes('REVIEW STATUS')"), `${width}: source interpretation review separated`);
-    check(await evaluate("location.pathname === '/contracts/upload' && !document.querySelector('.analysis-result').textContent.includes('Grant_Agreement')"), `${width}: no fictional demo substitution`);
-    check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: no global horizontal overflow`);
-    await screenshot(`analysis-result-${width}`);
-    await submit();
-    await evaluate("document.querySelector('button[aria-label=\"Remove selected file\"]').click()");
-    try {
-      await reply(200, { analysis });
-    } catch (error) {
-      // Chromium may already have discarded the intercepted request after the
-      // application's AbortController cancellation. That is expected here.
-      if (!(error instanceof Error) || error.message !== "Invalid InterceptionId.") throw error;
-      await pause(300);
+    await until("document.querySelectorAll('.analysis-obligation').length === 3");
+    for (const [label, expected] of [["Obligations found", 3], ["Direct", 1], ["Inferred", 1], ["Uncertain", 1], ["Needs human review", 2], ["Citations verified", 2], ["Citations unverified", 1], ["With deadline wording", 1], ["Require evidence", 1], ["Missing responsible party", 1], ["Without a clear calendar deadline", 3]]) {
+      check(await metric(label) === String(expected), `${width}: summary ${label}`);
     }
-    check(await evaluate("!document.querySelector('.analysis-result') && !document.querySelector('.selected-file')"), `${width}: removing a document prevents stale results`);
+    check(await evaluate("document.querySelectorAll('.review-queue details').length === 2"), `${width}: review queue populated`);
+    await evaluate("document.querySelector('.review-queue details').open = true");
+    check(await evaluate("document.querySelector('.review-queue').textContent.includes('inferred rather than directly stated') && document.querySelector('.review-queue').textContent.includes('cannot safely be converted')"), `${width}: actual review reasons and unsafe deadline visible`);
+    await clickText("Reuse current analysis");
+    check(apiCalls === baseline + 1, `${width}: repeated analysis reuses cached result`);
+    check(await evaluate("document.body.textContent.includes('No AI request was sent')"), `${width}: cache reuse feedback`);
+    await evaluate("document.querySelector('.completion-control input').click()");
+    await until("document.querySelector('.analysis-obligation .analysis-heading').textContent.includes('Completed')");
+    check(await evaluate("document.querySelector('.analysis-obligation').textContent.includes('Task completion was recorded by the user')"), `${width}: explicit session completion changes status`);
+    await evaluate("document.querySelectorAll('.completion-control input')[1].click()");
+    check(await evaluate("document.querySelectorAll('.analysis-obligation')[1].querySelector('.analysis-heading').textContent.includes('Needs Review')"), `${width}: completion cannot bypass review`);
+    await evaluate("(() => { const select = document.querySelector('select[aria-label=\"Filter real obligations\"]'); select.value = 'payment'; select.dispatchEvent(new Event('change', {bubbles:true})); })()");
+    await pause(150);
+    check(await evaluate("document.querySelectorAll('.analysis-obligation').length === 1 && document.querySelector('.analysis-obligation h3').textContent.includes('Pay the supplier')"), `${width}: payment filter works`);
+    await evaluate("(() => { const select = document.querySelector('select[aria-label=\"Filter real obligations\"]'); select.value = 'all'; select.dispatchEvent(new Event('change', {bubbles:true})); })()");
+    await pause(150);
+    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('SOURCE') && document.querySelector('.analysis-result').textContent.includes('AI INTERPRETATION') && document.querySelector('.analysis-result').textContent.includes('OPERATIONAL STATE') && document.querySelector('.analysis-result').textContent.includes('REVIEW STATE')"), `${width}: intelligence layers separated`);
+    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('Quote matched to page') && document.querySelector('.analysis-result').textContent.includes('Quote not verified')"), `${width}: citation verification states retained`);
+    check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: results have no horizontal overflow`);
+    check(await evaluate("!document.querySelector('.analysis-result').textContent.includes('Grant_Agreement')"), `${width}: no fictional demo result`);
+    await screenshot(`intelligence-result-${width}`);
+    await clickText("Ask about this contract");
+    await until("location.pathname === '/assistant' && !!document.querySelector('.current-contract')");
+    check(await evaluate("document.querySelector('.current-contract').textContent.includes('Intelligence-Sample.pdf')"), `${width}: assistant uses current session across navigation`);
+    for (let index = 0; index < 13; index++) {
+      await evaluate(`document.querySelectorAll('.assistant-prompts > button')[${index}].click()`);
+    }
+    await pause(150);
+    check(await evaluate("document.querySelectorAll('.conversation-turn').length === 13"), `${width}: all supported local questions answered`);
+    check(await evaluate("document.querySelector('[role=log]').textContent.includes('3 obligations were found') && document.querySelector('[role=log]').textContent.includes('Source page 1')"), `${width}: local counts and source lookup grounded`);
+    await evaluate("(() => { const input = document.querySelector('#assistant-question'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Explain the business risks'); input.dispatchEvent(new Event('input', {bubbles:true})); })()");
+    await pause(100);
+    await evaluate("document.querySelector('button[aria-label=\"Send question\"]').click()");
+    await pause(150);
+    check(await evaluate("document.querySelector('[role=log]').textContent.includes('Generative assistance is not enabled')"), `${width}: synthesis does not silently call a provider`);
+    check(apiCalls === baseline + 1, `${width}: navigation, review toggles, statuses and all assistant questions make zero extra API calls`);
+    check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: assistant has no horizontal overflow`);
+    await screenshot(`intelligence-assistant-${width}`);
+    await evaluate("document.querySelector('.source-chip').click()");
+    await until("location.pathname === '/contracts/upload' && !!document.querySelector('.analysis-result')");
+    check(await evaluate("document.querySelector('.analysis-obligation .analysis-heading').textContent.includes('Completed')"), `${width}: completion persists across workspace navigation`);
+    await selectPdf(".qa/Intelligence-Sample.pdf");
+    await clickText("Analyze with AI");
+    await until("!!document.querySelector('.analysis-result')");
+    check(apiCalls === baseline + 1, `${width}: reselecting identical PDF reuses session analysis`);
+    await selectPdf(".qa/Different-Sample.pdf");
+    await submit();
+    check(apiCalls === baseline + 2, `${width}: a different document makes one explicit request`);
+    await reply(200, { analysis: { ...analysis, documentTitle: "Different synthetic document", obligations: [] } });
+    await until("document.body.textContent.includes('No operational obligations identified')");
+    check(await metric("Obligations found") === "0", `${width}: new document has isolated intelligence`);
+    await clickText("Clear analysis session");
+    check(await evaluate("!document.querySelector('.analysis-result')"), `${width}: explicit session clearing works`);
   }
+  await command("Page.navigate", { url: `${origin}/assistant` });
+  await until("document.readyState === 'complete' && !!document.querySelector('.assistant-empty')");
+  check(await evaluate("document.body.textContent.includes('No analysed contract in this session')"), "Fresh session never falls back to fictional obligations");
   check(runtimeErrors.length === 0, "No uncaught browser runtime errors");
-  await writeFile(".qa/analysis-ui-results.json", JSON.stringify({ checks, runtimeErrors }, null, 2));
-  console.log(`${checks.filter(c => c.passed).length}/${checks.length} analysis browser checks passed (mock API; no credits used).`);
+  await writeFile(".qa/intelligence-ui-results.json", JSON.stringify({ checks, runtimeErrors }, null, 2));
+  console.log(`${checks.filter(c => c.passed).length}/${checks.length} targeted Phase 2B browser checks passed (mock API; zero credits used).`);
 } finally {
   await command("Fetch.disable");
   socket.close();

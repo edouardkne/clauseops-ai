@@ -7,7 +7,9 @@ import type { ExtractedDocument } from "../lib/pdf/types";
 
 import { Icon } from "./icon";
 import { AnalysisResult } from "./analysis-result";
-import { AI_ANALYSIS_LIMITS, AnalyzeContractRequestSchema, VerifiedContractAnalysisSchema, type VerifiedContractAnalysis } from "../lib/ai/contract-analysis-schema";
+import { useAnalysisSession } from "./analysis-session";
+import { documentFingerprint } from "../lib/intelligence/analysis-cache";
+import { AI_ANALYSIS_LIMITS, AnalyzeContractRequestSchema, VerifiedContractAnalysisSchema } from "../lib/ai/contract-analysis-schema";
 
 type FilePickerKind = "contract" | "evidence";
 
@@ -55,7 +57,9 @@ export function FilePicker({
   const activeRequest = useRef<AbortController | null>(null);
   const busy = useRef(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<VerifiedContractAnalysis | null>(null);
+  const session = useAnalysisSession();
+  const analysis = kind === "contract" ? session.current?.analysis : undefined;
+  const [reuseMessage, setReuseMessage] = useState("");
   const [analysisError, setAnalysisError] = useState("");
 
   useEffect(() => () => {
@@ -86,7 +90,8 @@ export function FilePicker({
     activeRequest.current = null;
     busy.current = false;
     setAnalyzing(false);
-    setAnalysis(null);
+    if (kind === "contract") session.clearCurrent();
+    setReuseMessage("");
     setAnalysisError("");
     setFile(null);
     setDocument(null);
@@ -101,7 +106,8 @@ export function FilePicker({
   async function choose(selected?: File) {
     if (!selected || busy.current) return;
     const currentRevision = ++revision.current;
-    setAnalysis(null);
+    if (kind === "contract") session.clearCurrent();
+    setReuseMessage("");
     setAnalysisError("");
     setError("");
     setDocument(null);
@@ -186,28 +192,38 @@ export function FilePicker({
     activeRequest.current = controller;
     busy.current = true;
     setAnalyzing(true);
-    setAnalysis(null);
     const timer = setTimeout(() => controller.abort(), AI_ANALYSIS_LIMITS.timeoutMs + 10_000);
     try {
-      const response = await fetch("/api/analyze-contract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-        cache: "no-store",
+      const key = await documentFingerprint(payload);
+      if (currentRevision !== revision.current || controller.signal.aborted) return;
+      let providerRequested = false;
+      const result = await session.cache.run(key, async () => {
+        if (controller.signal.aborted) throw new DOMException("Cancelled", "AbortError");
+        providerRequested = true;
+        const response = await fetch("/api/analyze-contract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          const message = response.status === 413
+            ? "The extracted text is too large to analyse. Try a shorter document."
+            : response.status === 400
+              ? "The extracted pages could not be accepted. Please check the preview and select a supported PDF."
+              : "AI analysis is unavailable or could not finish. Please try again; your extracted pages are still available.";
+          throw new Error(message);
+        }
+        const body = await response.json();
+        const parsed = VerifiedContractAnalysisSchema.safeParse(body.analysis);
+        if (!parsed.success) throw new Error("The server returned an incomplete analysis. Please try again.");
+        return parsed.data;
       });
-      if (!response.ok) {
-        const message = response.status === 413
-          ? "The extracted text is too large to analyse. Try a shorter document."
-          : response.status === 400
-            ? "The extracted pages could not be accepted. Please check the preview and select a supported PDF."
-            : "AI analysis is unavailable or could not finish. Please try again; your extracted pages are still available.";
-        throw new Error(message);
+      if (currentRevision === revision.current) {
+        session.activate(key, document.filename, document.pageCount, result);
+        setReuseMessage(providerRequested ? "Analysis ready. Operational intelligence is calculated locally." : "Existing analysis reused for this unchanged document. No AI request was sent.");
       }
-      const body = await response.json();
-      const parsed = VerifiedContractAnalysisSchema.safeParse(body.analysis);
-      if (!parsed.success) throw new Error("The server returned an incomplete analysis. Please try again.");
-      if (currentRevision === revision.current) setAnalysis(parsed.data);
     } catch (caught) {
       if (currentRevision !== revision.current) return;
       setAnalysisError(controller.signal.aborted
@@ -457,8 +473,8 @@ export function FilePicker({
               Parsing and the PDF binary stay local. Only when you click
               Analyze with AI, the filename and extracted page text are sent
               through our server to OpenAI. ClauseOps keeps the result in this
-              page’s memory, with no database storage or document analytics.
-              Leaving or refreshing this page clears the result. OpenAI’s API
+              workspace session memory, with no database storage or document analytics.
+              Results survive workspace navigation; refreshing or clearing the session removes them. OpenAI’s API
               data policies apply to transmitted text; this is not a zero-retention guarantee.
             </>
           ) : (
@@ -489,15 +505,19 @@ export function FilePicker({
 
           <button type="button" className="button primary" disabled={analyzing} onClick={() => void analyze()}>
             <Icon name="spark" size={18} />
-            {analyzing ? "Analysing document…" : "Analyze with AI"}
+            {analyzing ? "Analysing document…" : analysis ? "Reuse current analysis" : "Analyze with AI"}
           </button>
           <div aria-live="polite" aria-busy={analyzing}>
             {analyzing && <p className="inline-note" role="status">Analysing the extracted pages and checking supporting quotes. This can take up to two minutes. Your page preview remains available.</p>}
             {analysisError && <p className="error-message" role="alert">{analysisError}</p>}
+            {reuseMessage && <p className="small-muted" role="status">{reuseMessage}</p>}
           </div>
-          {analysis && <AnalysisResult analysis={analysis} filename={document.filename} pageCount={document.pageCount} />}
         </div>
       )}
+      {isContract && session.current && <>
+        <AnalysisResult key={session.current.key} />
+        <button className="button secondary" type="button" onClick={() => { resetSelection(); session.forgetAll(); }}>Clear analysis session</button>
+      </>}
     </div>
   );
 }

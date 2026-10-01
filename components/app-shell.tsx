@@ -30,7 +30,7 @@ export function AppSidebar({ close }: {
     <div className="nav-caption">WORKSPACE</div>
     <nav aria-label="Application">{navigation.map(n => <Link key={n.href} href={n.href} onClick={close} className={`nav-link ${path.startsWith(n.href) ? "active" : ""}`} aria-current={path.startsWith(n.href) ? "page" : undefined}>
       <Icon name={n.icon} />
-      <span>{n.label}</span>{n.label === "AI Assistant" && <span className="nav-new">DEMO</span>}</Link>)}</nav>
+      <span>{n.label}</span>{n.label === "AI Assistant" && <span className="nav-new">LOCAL</span>}</Link>)}</nav>
     <div className="sidebar-bottom">
       <div className="phase-card">
         <Icon name="spark" size={19} />
@@ -64,7 +64,7 @@ export function AppHeader({ open, toggle }: {
     </div>
     <div className="header-right">
       <span className="demo-pill">
-        <span /> {path === "/contracts/upload" ? "Session analysis" : "Demo mode"}</span>
+        <span /> {path === "/contracts/upload" || path === "/assistant" ? "Session intelligence" : "Demo mode"}</span>
       <span className="header-divider" />
       <span className="avatar small">AO</span>
     </div>
@@ -83,7 +83,7 @@ export function AppShell({ children }: {
       <main id="main-content" className="app-main">{children}</main>
       <footer className="app-footer">
         <span>{disclaimer}</span>
-        <span>Phase 2A · Session analysis & demo workspace</span>
+        <span>Phase 2B · Session intelligence & demo workspace</span>
       </footer>
     </div>
   </div>;

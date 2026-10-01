@@ -9,15 +9,15 @@ export default function UploadPage() {
       <SectionCard title="Upload contract" subtitle="One document. A more structured way forward.">
         <FilePicker />
       </SectionCard>
-      <SectionCard title="Your document workflow" subtitle="Phase 2A · Real extraction and AI analysis">
-        <ol className="process-list">{[["Document processing · ACTIVE", "Read selectable PDF text in your browser and preserve original page numbers. PDF limit: 10 MB, 100 pages. OCR is not available."], ["AI analysis · ACTIVE", "On your request, analyse extracted text with OpenAI and check supporting quotes against the cited pages. Analysis limit: 250,000 characters total, 50,000 per page."], ["Compliance plan · NEXT", "Review interpreted responsibilities, timing, and evidence needs. Nothing is assigned automatically."], ["Start tracking · UPCOMING", "Persistent workflows and evidence verification are not yet connected."]].map(([title, text], i) => <li key={title}>
+      <SectionCard title="Your document workflow" subtitle="Phase 2B · Obligation intelligence">
+        <ol className="process-list">{[["Document processing · ACTIVE", "Read selectable PDF text in your browser and preserve original page numbers. PDF limit: 10 MB, 100 pages. OCR is not available."], ["AI analysis · ON REQUEST", "Analyse extracted text with OpenAI and check supporting quotes. An unchanged document reuses its session analysis. Limit: 250,000 characters total, 50,000 per page."], ["Obligation intelligence · LOCAL", "Explore counts, review reasons, relationships, deterministic statuses, and source-grounded assistant answers without additional AI calls."], ["Tracking · SESSION ONLY", "Record task completion locally. Persistence and evidence attachment or verification are not yet connected."]].map(([title, text], i) => <li key={title}>
           <span>{i + 1}</span>
           <div>
             <h3>{title}</h3>
             <p>{text}</p>
           </div>
         </li>)}</ol>
-        <p className="small-muted">Your result appears on this page and is cleared when you leave or refresh. The dashboard, reports, and demo agreement remain fictional and separate from your document.</p>
+        <p className="small-muted">Results stay in workspace memory across navigation and are removed on refresh or Clear analysis session. The dashboard, reports, and demo agreement remain fictional and separate from your document.</p>
       </SectionCard>
     </div>
   </>;
