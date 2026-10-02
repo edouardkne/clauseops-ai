@@ -6,7 +6,14 @@ import { formatDate } from "@/lib/format";
 import { DemoNotice, EvidenceStatusBadge, PageHeader, SectionCard } from "./ui";
 import { Icon } from "./icon";
 import { FilePicker } from "./file-picker";
+import { useAnalysisSession } from "./analysis-session";
+import { EvidenceIntelligence } from "./evidence-intelligence";
 export function EvidenceVault() {
+  const { current } = useAnalysisSession();
+  if (current) return <EvidenceIntelligence key={current.key} current={current} />;
+  return <><div className="inline-note"><p>Analyse a contract to add real evidence and propose obligation links. <Link href="/contracts/upload">Analyse a contract</Link>. The records below are a separate fictional demo.</p></div><DemoEvidenceVault /></>;
+}
+function DemoEvidenceVault() {
   const [upload, setUpload] = useState(false); return <>
     <PageHeader eyebrow="THE RECORD BEHIND THE WORK" title="Evidence vault" description="Connect every completed action to the evidence that supports it." action={<button className="button primary" aria-expanded={upload} aria-controls="evidence-upload" onClick={() => setUpload(!upload)}>
       <Icon name={upload ? "close" : "upload"} size={17} />{upload ? "Close preview" : "Upload Evidence"}</button>} />

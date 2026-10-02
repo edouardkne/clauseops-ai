@@ -1,4 +1,5 @@
 import type { Intelligence, IntelligentObligation } from "./types";
+import { answerEvidenceQuery } from "../evidence/queries";
 
 export const LOCAL_QUESTIONS = [
   "How many obligations were found?", "What are the main obligations?", "Which obligations need human review?",
@@ -35,6 +36,8 @@ export function routeQuery(question: string): QueryRoute {
 }
 
 export function answerQuery(question: string, intelligence: Intelligence): LocalAnswer {
+  const evidenceAnswer = answerEvidenceQuery(question, intelligence);
+  if (evidenceAnswer) return evidenceAnswer;
   const route = routeQuery(question);
   if (route.kind === "synthesis") return { kind: "synthesis", text: "This question needs synthesis beyond the supported local lookups. Generative assistance is not enabled, and no provider was contacted. Try one of the suggested questions or review the source clauses.", obligationIds: [] };
   const all = intelligence.obligations;

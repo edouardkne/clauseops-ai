@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Brand } from "./ui";
 import { Icon, type IconName } from "./icon";
 import { disclaimer } from "@/mock-data";
+import { useAnalysisSession } from "./analysis-session";
 const navigation: {
   href: string;
   label: string;
@@ -53,6 +54,7 @@ export function AppHeader({ open, toggle }: {
   open: boolean;
   toggle: () => void;
 }) {
+  const { current } = useAnalysisSession();
   const path = usePathname(); const label = navigation.find(n => path.startsWith(n.href))?.label || "Workspace"; return <header className="app-header">
     <div className="header-breadcrumb">
       <button className="icon-button mobile-toggle" onClick={toggle} aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="app-navigation">
@@ -64,7 +66,7 @@ export function AppHeader({ open, toggle }: {
     </div>
     <div className="header-right">
       <span className="demo-pill">
-        <span /> {path === "/contracts/upload" || path === "/assistant" ? "Session intelligence" : "Demo mode"}</span>
+        <span /> {path === "/contracts/upload" || path === "/assistant" || (path === "/evidence" && current) ? "Session intelligence" : "Demo mode"}</span>
       <span className="header-divider" />
       <span className="avatar small">AO</span>
     </div>
@@ -83,7 +85,7 @@ export function AppShell({ children }: {
       <main id="main-content" className="app-main">{children}</main>
       <footer className="app-footer">
         <span>{disclaimer}</span>
-        <span>Phase 2B · Session intelligence & demo workspace</span>
+        <span>Phase 2C · Session intelligence & demo workspace</span>
       </footer>
     </div>
   </div>;

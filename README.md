@@ -1,4 +1,4 @@
-# ClauseOps AI - Phase 2B
+# ClauseOps AI - Phase 2C
 
 From legal obligations to executable compliance.
 
@@ -61,7 +61,7 @@ Official SDK reference: https://developers.openai.com/api/docs/guides/structured
 
 ## Deliberate limitations
 
-No database, authentication, Featherless, multi-model review, Chainlink CRE, blockchain, evidence backend, OCR, billing, notifications, or sync. Calendar, reports, evidence vault, and demo contracts remain fictional Phase 1 features. The assistant uses only the current real analysis; it has no demo fallback. Evidence review labels are not independent verification. No analysis is persisted or automatically assigned as a compliance workflow.
+No database, authentication, Featherless, multi-model review, Chainlink CRE, blockchain, evidence backend, OCR, billing, notifications, or sync. Calendar, reports, and demo contracts remain fictional Phase 1 features. Evidence Vault shows session evidence when a real contract is active; otherwise its historical demo is explicitly separate. The assistant uses only the current real analysis; it has no demo fallback. Evidence review labels are not independent verification. No analysis is persisted or automatically assigned as a compliance workflow.
 
 ClauseOps assists with obligation tracking and compliance operations. It does not provide legal advice.
 
@@ -71,8 +71,26 @@ ClauseOps assists with obligation tracking and compliance operations. It does no
 
 The graph links documents, obligations, named parties, original deadline wording, required evidence, and claimed source pages/quotes. It does not infer dependencies between obligations. Eleven counters and the human review queue are recalculated from verified results without changing the source analysis.
 
-Only valid standalone ISO calendar dates without recurrence are normalised. Relative dates, ambiguous formats, and recurrence remain original text and require review. Dates use an explicit UTC reference day, refreshed locally by the user. Status precedence is Needs Review, explicitly completed (or Missing Evidence if evidence references are absent), Overdue, Due Soon within seven days, Missing Evidence, then Pending. Completion is a reversible session action, never a model inference. Future evidence links are association types only and do not verify evidence.
+Only valid standalone ISO calendar dates without recurrence are normalised. Relative dates, ambiguous formats, and recurrence remain original text and require review. Dates use an explicit UTC reference day, refreshed locally by the user. Status precedence is Needs Review, Missing Evidence when explicitly required evidence has no accepted association, explicit Completed, Overdue, Due Soon within seven days, then Pending. Completion is a reversible session action, never a model inference. Accepted evidence links are associations only and do not verify authenticity or legal sufficiency.
 
 The SHA-256 cache identity includes filename, page numbers, and exact extracted text. It coalesces concurrent requests and reuses successful analyses within this workspace session; failures are evicted. Changing any of those inputs triggers a new analysis only on explicit submission. Clearing the session removes cached results and local completion state. Nothing is written to localStorage, sessionStorage, or a database.
 
 The assistant answers thirteen deterministic question types using current obligations and citations. Unsupported synthesis is explicitly unavailable, with zero model calls. Missing deadlines or owners remain missing; unverified source quotes stay visibly unverified. Session state is not a legal compliance determination or a persistent tracking system.
+
+## Phase 2C evidence intelligence
+
+Evidence PDFs reuse local unpdf extraction (10 MB / 100 pages, no OCR). Session records contain IDs, metadata, timestamp, exact extracted pages and local/AI proposals. Each proposal retains its strength, explanation, supporting page/quote, deterministic quote and validity-wording checks, review flag/reason, user decision and review acknowledgement. Accepted and rejected links derive from these decisions. No binary or evidence data is persisted.
+
+`lib/evidence/logic.ts` shortlists up to eight candidates using explicit IDs, filename/context tokens, category clues and evidence requirements. Literal IDs or complete multi-word requirements can produce local proposals without a provider call. Keyword matching is intentionally limited: users can select other candidates when the shortlist misses a semantic relationship. Local scores are internal ranking signals, not displayed confidence percentages.
+
+Only **Match Evidence with AI** posts evidence filename/pages plus selected obligation IDs, titles, actions, categories and evidence requirements to `/api/match-evidence`. It never sends the full contract or raw PDF. The server uses the existing configured model and strict Responses/Zod outputs. Request validation reuses Phase 2A byte/text/page bounds, rejects extra fields and cross-origin browser requests, and returns sanitized no-store responses. No credentials are read in client code. The existing SDK dependencies are unchanged.
+
+Every AI target ID must belong to the candidate set, with no duplicates. Evidence quotes are matched against the claimed page using the existing NFKC/whitespace normalisation; failed quotes downgrade to weak, require review and cannot be accepted. Explicit validity/expiry wording is checked against that same page and never converted into a validity verdict. Model flags cannot override these checks. Prompts treat all evidence and obligation fields as untrusted source data.
+
+**Accept Match** creates a session association only. **Reject Match** removes that association and preserves the rejection across retries, cache reuse and reselection. **Review Match** exposes grounding/reasons; **Confirm relevance reviewed** explicitly acknowledges ambiguity without clearing independent contract review flags. Ungrounded matches cannot be accepted or marked reviewed. Unresolved uncertain matches trigger Needs Review, including after acceptance. Completion remains a separate user action.
+
+The provider owns a memory-only promise cache scoped by active contract and a SHA-256 fingerprint of exact evidence pages/filename and candidate content. Identical pending/completed requests are reused; failures are retryable. Changing the selected candidate set is a different explicitly submitted request. Clearing the analysis session removes evidence, decisions and caches. Navigation preserves session records; refresh removes them.
+
+The local assistant adds six evidence query patterns to the existing evidence-requirement query: accepted links, missing evidence, links by obligation, review queue, rejected AI proposals and unlinked evidence. All seven use structured session state with zero provider calls. Generative assistant synthesis remains disabled.
+
+Run `node scripts/verify-evidence-ui.mjs` against the built app and a dedicated headless Chromium debugging endpoint for the targeted Phase 2C suite. APIs are intercepted with synthetic fixtures, so browser tests also spend no credits. This phase does not introduce database persistence, evidence authenticity checks, receipts, blockchain, OCR or deployment.

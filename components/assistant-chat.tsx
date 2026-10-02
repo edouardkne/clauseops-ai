@@ -6,6 +6,7 @@ import { Icon } from "./icon";
 import { EmptyState } from "./ui";
 import { useAnalysisSession } from "./analysis-session";
 import { answerQuery, LOCAL_QUESTIONS } from "@/lib/intelligence/queries";
+import { EVIDENCE_QUESTIONS } from "@/lib/evidence/queries";
 import type { AnalysisSession, Intelligence } from "@/lib/intelligence/types";
 
 export function AssistantChat() {
@@ -61,7 +62,7 @@ function GroundedChat({ session, intelligence }: { session: AnalysisSession; int
       <div className="eyebrow">CURRENT CONTRACT · NO API COST</div>
       <h2>Find the obligation.<br />Return to the source.</h2>
       <p>Use a suggested question, or refer to an obligation by its displayed number. Answers reflect the current session state.</p>
-      {LOCAL_QUESTIONS.map(question => <button key={question} onClick={() => ask(question)}><Icon name="search" size={17} /><span>{question}</span><Icon name="arrow" size={15} /></button>)}
+      {[...LOCAL_QUESTIONS, ...EVIDENCE_QUESTIONS].map(question => <button key={question} onClick={() => ask(question)}><Icon name="search" size={17} /><span>{question}</span><Icon name="arrow" size={15} /></button>)}
       <div className="assistant-boundary"><Icon name="shield" /><h3>Synthesis stays separate</h3><p>Questions requiring generative reasoning are routed to an explicit unavailable state. No automatic calls, fallback model requests, or document transmission occur.</p></div>
     </aside>
   </div>;

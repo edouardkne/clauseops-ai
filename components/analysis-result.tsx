@@ -95,7 +95,9 @@ export function AnalysisResult() {
       <div className="analysis-review operational-state">
         <div className="eyebrow">OPERATIONAL STATE · DETERMINISTIC</div>
         <StatusBadge status={o.operationalStatus} /><p>{o.statusReason}</p>
-        <p>{o.mappedEvidenceCount} session evidence references mapped. Evidence attachment and validation are not yet available.</p>
+        <p>{o.mappedEvidenceCount} accepted evidence associations. These do not establish authenticity or legal sufficiency.</p>
+        <ul className="analysis-list">{(current.state.evidence || []).filter(e => e.proposals.some(p => p.obligationId === o.id && p.decision === "accepted")).map(e => <li key={e.id}><Link href={`/evidence#evidence-${e.id}`}>{e.filename}</Link></li>)}</ul>
+        <Link className="text-link" href="/evidence">Review evidence for this contract</Link>
         <label className="completion-control"><input type="checkbox" checked={o.completionRecorded} onChange={e => recordCompletion(o.id, e.target.checked)} />I have completed this task (session only)</label>
         <p>Recording completion does not clear review flags or missing evidence. It does not change the source or AI interpretation.</p>
       </div>

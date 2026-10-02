@@ -6,9 +6,9 @@ type Analyzer = (input: AnalyzeContractRequest, signal?: AbortSignal) => Promise
 const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 const error = (message: string, status: number) => Response.json({ error: message }, { status, headers });
 
-class BodyLimitError extends Error {}
+export class BodyLimitError extends Error {}
 
-async function readBoundedBody(request: Request) {
+export async function readBoundedBody(request: Request) {
   const reader = request.body?.getReader();
   if (!reader) return "";
   let bytes = 0;
