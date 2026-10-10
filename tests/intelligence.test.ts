@@ -155,7 +155,7 @@ test("source lookup supports displayed number, ID, and exact title; missing refe
     assert.match(answer.text, /Source page 1/);
     assert.ok(answer.text.includes(mixed.obligations[0].source.quote));
   }
-  assert.match(answerQuery("Show the source for obligation 3.", intelligence).text, /Quote unverified/);
+  assert.match(answerQuery("Show the source for obligation 3.", intelligence).text, /Unverified source/);
   assert.match(answerQuery("Show the source for obligation 99.", intelligence).text, /not found/);
 });
 

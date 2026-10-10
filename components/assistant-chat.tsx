@@ -12,7 +12,7 @@ import type { AnalysisSession, Intelligence } from "@/lib/intelligence/types";
 export function AssistantChat() {
   const { current, intelligence } = useAnalysisSession();
   if (!current || !intelligence) return <div className="card assistant-empty">
-    <EmptyState title="No analysed contract in this session" description="Analyse a PDF first to ask grounded questions about its obligations. This assistant does not substitute fictional demo records." />
+    <EmptyState title="No analysed contract in this session" description="Analyse a PDF first to ask grounded questions about its obligations. Supported structured questions run locally, without additional AI calls." />
     <Link className="button primary" href="/contracts/upload">Analyse a contract <Icon name="arrow" size={16} /></Link>
   </div>;
   return <GroundedChat key={current.key} session={current} intelligence={intelligence} />;
@@ -44,7 +44,7 @@ function GroundedChat({ session, intelligence }: { session: AnalysisSession; int
               <p>{answer.text}</p>
               <div className="answer-sources">{answer.obligationIds.slice(0, 10).map(id => {
                 const o = intelligence.obligations.find(o => o.id === id)!;
-                return <Link key={id} className="source-chip" href={`/contracts/upload#obligation-${id}`}><Icon name="file" size={13} />#{o.number} · Page {o.source.pageNumber} · {o.sourceVerified ? "Verified quote" : "Unverified quote"}</Link>;
+                return <Link key={id} className="source-chip" href={`/contracts/upload#obligation-${id}`}><Icon name="file" size={13} />#{o.number} · Page {o.source.pageNumber} · {o.sourceVerified ? "Verified source" : "Unverified source"}</Link>;
               })}</div>
               {answer.obligationIds.length > 10 && <p>Source links show the first 10 matches; all matching obligations are listed above.</p>}
             </div></div>

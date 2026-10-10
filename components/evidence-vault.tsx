@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { evidence, obligations } from "@/mock-data";
 import { formatDate } from "@/lib/format";
-import { DemoNotice, EvidenceStatusBadge, PageHeader, SectionCard } from "./ui";
+import { DemoNotice, EmptyState, EvidenceStatusBadge, PageHeader, SectionCard } from "./ui";
 import { Icon } from "./icon";
 import { FilePicker } from "./file-picker";
 import { useAnalysisSession } from "./analysis-session";
@@ -11,7 +11,7 @@ import { EvidenceIntelligence } from "./evidence-intelligence";
 export function EvidenceVault() {
   const { current } = useAnalysisSession();
   if (current) return <EvidenceIntelligence key={current.key} current={current} />;
-  return <><div className="inline-note"><p>Analyse a contract to add real evidence and propose obligation links. <Link href="/contracts/upload">Analyse a contract</Link>. The records below are a separate fictional demo.</p></div><DemoEvidenceVault /></>;
+  return <><PageHeader eyebrow="CONNECT THE SUPPORTING RECORDS" title="Evidence vault" description="AI proposes. User confirms. ClauseOps tracks."/><EmptyState title="Start with a contract" description="Analyze a contract first, then add evidence and review proposed obligation matches in this session."/><Link className="button primary" href="/contracts/upload">Analyze a contract</Link><details className="sample-evidence"><summary>Explore fictional sample evidence</summary><DemoEvidenceVault /></details></>;
 }
 function DemoEvidenceVault() {
   const [upload, setUpload] = useState(false); return <>

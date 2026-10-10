@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Brand } from "./ui";
 import { Icon, type IconName } from "./icon";
 import { disclaimer } from "@/mock-data";
-import { useAnalysisSession } from "./analysis-session";
+import { WorkflowNav } from "./workflow-nav";
+
 const navigation: {
   href: string;
   label: string;
@@ -22,29 +23,29 @@ export function AppSidebar({ close }: {
   const path = usePathname(); return <aside className="sidebar" id="app-navigation">
     <Brand />
     <div className="workspace">
-      <span className="workspace-avatar">UC</span>
+      <span className="workspace-avatar">CO</span>
       <div>
-        <strong>Ubuntu Community</strong>
-        <small>Demo workspace</small>
+        <strong>Your workspace</strong>
+        <small>Session only · Not saved</small>
       </div>
     </div>
-    <div className="nav-caption">WORKSPACE</div>
-    <nav aria-label="Application">{navigation.map(n => <Link key={n.href} href={n.href} onClick={close} className={`nav-link ${path.startsWith(n.href) ? "active" : ""}`} aria-current={path.startsWith(n.href) ? "page" : undefined}>
+    <div className="nav-caption">YOUR DOCUMENT</div><nav aria-label="Current document">{[{href:"/contracts/upload",label:"Contract & obligations",icon:"file" as IconName}, ...navigation.filter(n=>["/evidence","/assistant","/settings"].includes(n.href))].map(n=><Link key={n.href} href={n.href} onClick={close} className={`nav-link ${path===n.href?"active":""}`} aria-current={path===n.href?"page":undefined}><Icon name={n.icon}/><span>{n.label}</span></Link>)}</nav><details className="sample-navigation"><summary>Sample workspace · Fictional</summary>
+    <nav aria-label="Fictional sample workspace">{navigation.filter(n=>!["/evidence","/assistant","/settings"].includes(n.href)).map(n => <Link key={n.href} href={n.href} onClick={close} className={`nav-link ${path.startsWith(n.href) ? "active" : ""}`} aria-current={path.startsWith(n.href) ? "page" : undefined}>
       <Icon name={n.icon} />
-      <span>{n.label}</span>{n.label === "AI Assistant" && <span className="nav-new">LOCAL</span>}</Link>)}</nav>
+      <span>{n.label}</span>{n.label === "AI Assistant" && <span className="nav-new">LOCAL</span>}</Link>)}</nav></details>
     <div className="sidebar-bottom">
       <div className="phase-card">
         <Icon name="spark" size={19} />
         <strong>Clarity. Then action.</strong>
         <p>Your compliance workspace, connected from clause to evidence.</p>
-        <Link href="/contracts/demo" onClick={close}>Explore the demo <Icon name="arrow" size={15} />
+        <Link href="/contracts/upload" onClick={close}>Analyze a contract <Icon name="arrow" size={15} />
         </Link>
       </div>
       <div className="sidebar-user">
-        <span className="avatar">AO</span>
+        <span className="avatar">CO</span>
         <div>
-          <strong>Amara Okafor</strong>
-          <small>Workspace administrator</small>
+          <strong>Local session</strong>
+          <small>No account connected</small>
         </div>
       </div>
     </div>
@@ -54,7 +55,7 @@ export function AppHeader({ open, toggle }: {
   open: boolean;
   toggle: () => void;
 }) {
-  const { current } = useAnalysisSession();
+
   const path = usePathname(); const label = navigation.find(n => path.startsWith(n.href))?.label || "Workspace"; return <header className="app-header">
     <div className="header-breadcrumb">
       <button className="icon-button mobile-toggle" onClick={toggle} aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="app-navigation">
@@ -66,9 +67,9 @@ export function AppHeader({ open, toggle }: {
     </div>
     <div className="header-right">
       <span className="demo-pill">
-        <span /> {path === "/contracts/upload" || path === "/assistant" || (path === "/evidence" && current) ? "Session intelligence" : "Demo mode"}</span>
+        <span /> {path === "/settings" ? "Capabilities" : ["/contracts/upload", "/assistant", "/evidence"].includes(path) ? "Session intelligence" : "Fictional sample"}</span>
       <span className="header-divider" />
-      <span className="avatar small">AO</span>
+      <span className="avatar small">CO</span>
     </div>
   </header>;
 }
@@ -82,10 +83,10 @@ export function AppShell({ children }: {
     <AppSidebar close={() => setOpen(false)} />
     <div className="app-body">
       <AppHeader open={open} toggle={() => setOpen(!open)} />
-      <main id="main-content" className="app-main">{children}</main>
+      <main id="main-content" className="app-main"><WorkflowNav />{children}</main>
       <footer className="app-footer">
         <span>{disclaimer}</span>
-        <span>Phase 2C · Session intelligence & demo workspace</span>
+        <span>Session-only tracking · Independent verification upcoming</span>
       </footer>
     </div>
   </div>;

@@ -1,4 +1,4 @@
-# ClauseOps AI - Phase 2C
+# ClauseOps AI - End-to-end workspace
 
 From legal obligations to executable compliance.
 
@@ -94,3 +94,8 @@ The provider owns a memory-only promise cache scoped by active contract and a SH
 The local assistant adds six evidence query patterns to the existing evidence-requirement query: accepted links, missing evidence, links by obligation, review queue, rejected AI proposals and unlinked evidence. All seven use structured session state with zero provider calls. Generative assistant synthesis remains disabled.
 
 Run `node scripts/verify-evidence-ui.mjs` against the built app and a dedicated headless Chromium debugging endpoint for the targeted Phase 2C suite. APIs are intercepted with synthetic fixtures, so browser tests also spend no credits. This phase does not introduce database persistence, evidence authenticity checks, receipts, blockchain, OCR or deployment.
+
+
+## Phase 2D consolidation
+
+The primary navigation now follows the real session: contract analysis, obligations and human review, evidence, then local assistant. Historical sample pages remain explicitly fictional and separated in collapsed navigation. The landing uses a clearly labelled example clause, describes current capabilities, and routes primary actions to real analysis. Settings list local, on-request, session-only and upcoming capabilities. Source labels are consistently Verified source / Unverified source: they describe text matching only. Human review, interpretation and operational state remain separate. Existing extraction, provider, caching and decision logic is unchanged.

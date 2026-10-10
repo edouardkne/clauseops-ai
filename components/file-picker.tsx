@@ -483,7 +483,7 @@ export function FilePicker({
                 Your evidence stays on your
                 device.
               </strong>{" "}
-              This Phase 1 preview displays
+              This sample file picker displays
               only local file metadata. No
               evidence content is uploaded or
               stored.

@@ -114,13 +114,13 @@ try {
     await choose(".qa/Receipt-Sample.pdf");
     await until("document.querySelectorAll('.evidence-document').length===1");
     check(apiCalls===baseline+1,`${width}: evidence selection and extraction make no provider request`);
-    check(await evaluate("document.querySelector('.evidence-match').textContent.includes('LOCAL MATCH')"),`${width}: exact requirement gets local proposal`);
+    check(await evaluate("document.querySelector('.evidence-match').textContent.includes('LOCAL INTERPRETATION')"),`${width}: exact requirement gets local proposal`);
     check(await evaluate("document.querySelectorAll('.candidate-list input:checked').length===2"),`${width}: deterministic shortlist excludes strong local proposal`);
     const payload=await submitMatch();
     check(Object.keys(payload).sort().join()==="evidence,obligations" && payload.obligations.length===2 && payload.obligations.every(o=>!('source' in o)&&!('description' in o)),`${width}: only evidence text and narrowed structured candidates sent`);
     await evaluate("Array.from(document.querySelectorAll('button')).find(b=>b.textContent.includes('Matching evidence')).click()");
     check(apiCalls===baseline+2,`${width}: duplicate inflight request blocked`);
-    await reply(200,{matches:[match,{...match,obligationId:thirdId,match:"weak",supportingEvidenceQuote:"Fabricated synthetic citation",quoteVerified:false,reviewReason:"Quote not verified."}]});
+    await reply(200,{matches:[match,{...match,obligationId:thirdId,match:"weak",supportingEvidenceQuote:"Fabricated synthetic citation",quoteVerified:false,reviewReason:"Unverified source."}]});
     await until("document.querySelectorAll('.evidence-match').length===3");
     check(await evaluate("Array.from(document.querySelectorAll('.evidence-match')).every(e=>e.dataset.decision==='proposed')"),`${width}: AI creates proposals only`);
     check(await evaluate("Array.from(document.querySelectorAll('.evidence-match')[2].querySelectorAll('button')).find(b=>b.textContent==='Accept Match').disabled"),`${width}: ungrounded proposal cannot be accepted`);

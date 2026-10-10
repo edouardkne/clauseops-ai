@@ -46,7 +46,7 @@ export function answerQuery(question: string, intelligence: Intelligence): Local
     const reference = route.reference || "";
     const o = /^\d+$/.test(reference) ? all.find(o => o.number === Number(reference)) : all.find(o => o.id.toLowerCase() === reference || o.title.toLowerCase() === reference);
     return o
-      ? { kind: "local", text: `#${o.number} ${o.title}\nSource page ${o.source.pageNumber} · ${o.sourceVerified ? "Quote verified" : "Quote unverified"}\n“${o.source.quote}”\nA text match is not a legal or semantic validation.`, obligationIds: [o.id] }
+      ? { kind: "local", text: `#${o.number} ${o.title}\nSource page ${o.source.pageNumber} · ${o.sourceVerified ? "Verified source" : "Unverified source"}\n“${o.source.quote}”\nA text match is not a legal or semantic validation.`, obligationIds: [o.id] }
       : { kind: "local", text: "That obligation was not found in the current document. Use its displayed number, full ID, or exact title.", obligationIds: [] };
   }
   const predicates: Partial<Record<LocalQuery, (o: IntelligentObligation) => boolean>> = {
@@ -63,7 +63,7 @@ export function answerQuery(question: string, intelligence: Intelligence): Local
     : o.action;
   return {
     kind: "local",
-    text: selected.length ? `${selected.length} matching obligations${route.query === "all" ? " (document order, not an AI priority ranking)" : route.query === "payment" ? " (payment category only)" : ""}:\n\n${selected.map(o => `#${o.number} ${o.title}\n${detail(o)}\nPage ${o.source.pageNumber} · ${o.sourceVerified ? "Quote verified" : "Quote unverified"}`).join("\n\n")}` : "No matching obligations in the current structured analysis. This does not establish that the full document has no such requirements.",
+    text: selected.length ? `${selected.length} matching obligations${route.query === "all" ? " (document order, not an AI priority ranking)" : route.query === "payment" ? " (payment category only)" : ""}:\n\n${selected.map(o => `#${o.number} ${o.title}\n${detail(o)}\nPage ${o.source.pageNumber} · ${o.sourceVerified ? "Verified source" : "Unverified source"}`).join("\n\n")}` : "No matching obligations in the current structured analysis. This does not establish that the full document has no such requirements.",
     obligationIds: selected.map(o => o.id),
   };
 }

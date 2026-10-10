@@ -100,6 +100,18 @@ await command("Fetch.enable", { patterns: [{ urlPattern: "*/api/analyze-contract
 try {
   for (const width of [1440, 390, 320]) {
     await command("Emulation.setDeviceMetricsOverride", { width, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await command("Page.navigate", { url: `${origin}/` });
+    await until("document.readyState === 'complete' && !!document.querySelector('.source-preview')");
+    check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: landing has no horizontal overflow`);
+    check(await evaluate("!document.body.textContent.includes('Phase 1') && !document.body.textContent.includes('No document upload') && !document.body.textContent.includes('Grant_Agreement')"), `${width}: landing represents current capabilities`);
+    check(await evaluate("Array.from(document.querySelectorAll('a')).filter(a=>a.textContent.includes('Analyze a contract')).every(a=>a.getAttribute('href')==='/contracts/upload')"), `${width}: landing CTAs open real workflow`);
+    await screenshot(`consolidated-landing-${width}`);
+    await command("Page.navigate", { url: `${origin}/evidence` });
+    await until("document.readyState === 'complete' && !!document.querySelector('.sample-evidence')");
+    check(await evaluate("!document.querySelector('.sample-evidence').open && document.body.textContent.includes('Start with a contract')"), `${width}: evidence starts with real empty state and separate collapsed samples`);
+    await command("Page.navigate", { url: `${origin}/settings` });
+    await until("document.readyState === 'complete' && !!document.querySelector('.settings-list')");
+    check(await evaluate("document.documentElement.scrollWidth <= innerWidth && document.body.textContent.includes('Upcoming')"), `${width}: settings responsive and independent verification upcoming`);
     await command("Page.navigate", { url: `${origin}/contracts/upload` });
     await until("document.readyState === 'complete' && !!document.querySelector('input[type=file]')");
     await pause(400);
@@ -132,8 +144,8 @@ try {
     check(await evaluate("document.querySelectorAll('.analysis-obligation').length === 1 && document.querySelector('.analysis-obligation h3').textContent.includes('Pay the supplier')"), `${width}: payment filter works`);
     await evaluate("(() => { const select = document.querySelector('select[aria-label=\"Filter real obligations\"]'); select.value = 'all'; select.dispatchEvent(new Event('change', {bubbles:true})); })()");
     await pause(150);
-    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('SOURCE') && document.querySelector('.analysis-result').textContent.includes('AI INTERPRETATION') && document.querySelector('.analysis-result').textContent.includes('OPERATIONAL STATE') && document.querySelector('.analysis-result').textContent.includes('REVIEW STATE')"), `${width}: intelligence layers separated`);
-    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('Quote matched to page') && document.querySelector('.analysis-result').textContent.includes('Quote not verified')"), `${width}: citation verification states retained`);
+    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('SOURCE') && document.querySelector('.analysis-result').textContent.includes('AI INTERPRETATION') && document.querySelector('.analysis-result').textContent.includes('OPERATIONAL STATE') && document.querySelector('.analysis-result').textContent.includes('HUMAN REVIEW')"), `${width}: intelligence layers separated`);
+    check(await evaluate("document.querySelector('.analysis-result').textContent.includes('Verified source') && document.querySelector('.analysis-result').textContent.includes('Unverified source')"), `${width}: citation verification states retained`);
     check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: results have no horizontal overflow`);
     check(await evaluate("!document.querySelector('.analysis-result').textContent.includes('Grant_Agreement')"), `${width}: no fictional demo result`);
     await screenshot(`intelligence-result-${width}`);
@@ -170,12 +182,21 @@ try {
     await clickText("Clear analysis session");
     check(await evaluate("!document.querySelector('.analysis-result')"), `${width}: explicit session clearing works`);
   }
+  await command("Page.navigate", { url: `${origin}/contracts/upload` });
+  await until("document.readyState === 'complete' && !!document.querySelector('input[type=file]')");
+  await pause(400);
+  await selectPdf(".qa/Intelligence-Sample.pdf");
+  await submit(); await reply(503, { error: "Synthetic unavailable response" });
+  check(await evaluate("document.body.textContent.includes('AI analysis is unavailable') && document.body.textContent.includes('PDF text extracted locally')"), "Analysis failure keeps extraction available");
+  await submit(); await reply(200, { analysis: { ...analysis, obligations: [] } });
+  await until("document.body.textContent.includes('No operational obligations identified')");
+  check(await evaluate("document.body.textContent.includes('No review flags were found')"), "Empty review queue has a useful state");
   await command("Page.navigate", { url: `${origin}/assistant` });
   await until("document.readyState === 'complete' && !!document.querySelector('.assistant-empty')");
   check(await evaluate("document.body.textContent.includes('No analysed contract in this session')"), "Fresh session never falls back to fictional obligations");
   check(runtimeErrors.length === 0, "No uncaught browser runtime errors");
   await writeFile(".qa/intelligence-ui-results.json", JSON.stringify({ checks, runtimeErrors }, null, 2));
-  console.log(`${checks.filter(c => c.passed).length}/${checks.length} targeted Phase 2B browser checks passed (mock API; zero credits used).`);
+  console.log(`${checks.filter(c => c.passed).length}/${checks.length} targeted consolidation browser checks passed (mock API; zero credits used).`);
 } finally {
   await command("Fetch.disable");
   socket.close();

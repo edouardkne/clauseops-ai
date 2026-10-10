@@ -47,7 +47,7 @@ export function EvidenceIntelligence({ current }: { current: AnalysisSession }) 
       <p className="small-muted">The PDF binary stays local. Only clicking Match Evidence with AI sends extracted evidence text and selected structured obligations through our server to OpenAI. No full contract is resent. Results and decisions live in workspace memory and clear on refresh or Clear analysis session. OpenAI data policies apply to text you choose to transmit.</p>
       <div aria-live="polite">{extracting && <p role="status">Extracting evidence locally…</p>}{message && <p role="status">{message}</p>}{error && <p role="alert" className="error-message">{error}</p>}</div>
     </SectionCard></div>}
-    {!evidence.length && <EmptyState title="No evidence in this session" description="Add a PDF to see local candidates. No fictional records are used for your active contract." />}
+    {!evidence.length && <EmptyState title="No evidence in this session" description="Add a PDF to see local candidates. Associations are created only after you accept a match." />}
     <div className="evidence-documents">{evidence.map(item => <EvidenceDocument key={item.id} evidence={item} current={current} />)}</div>
     <p className="analysis-disclaimer">ClauseOps assists with obligation tracking and compliance operations. It does not provide legal advice.</p>
   </>;
@@ -105,15 +105,15 @@ function EvidenceDocument({ evidence, current }: { evidence: SessionEvidence; cu
       if (!obligation) return null;
       const review = evidenceNeedsReview(proposal);
       return <section key={proposal.obligationId} className="evidence-match" data-decision={proposal.decision}>
-        <div className="eyebrow">{proposal.method === "ai" ? "AI MATCH · PROPOSAL" : "LOCAL MATCH · PROPOSAL"}</div>
+        <div className="eyebrow">{proposal.method === "ai" ? "AI INTERPRETATION · MATCH PROPOSAL" : "LOCAL INTERPRETATION · MATCH PROPOSAL"}</div>
         <div className="analysis-heading"><h3>{obligation.title}</h3><div className="analysis-badges"><span className="badge blue capitalize">{proposal.match}</span><span className={`badge ${proposal.decision === "accepted" ? "green" : "neutral"}`}>{proposal.decision}</span>{review && <span className="badge amber">Needs Review</span>}</div></div>
         <p>{proposal.explanation}</p>
-        <div className="analysis-source"><div className="eyebrow">GROUNDING · EVIDENCE PAGE {proposal.pageNumber}</div><blockquote>{proposal.supportingEvidenceQuote}</blockquote><span className={`badge ${proposal.quoteVerified ? "green" : "red"}`}>{proposal.quoteVerified ? "Evidence quote verified" : "Evidence quote not verified"}</span>
+        <div className="analysis-source"><div className="eyebrow">SOURCE · EVIDENCE PAGE {proposal.pageNumber}</div><blockquote>{proposal.supportingEvidenceQuote}</blockquote><span className={`badge ${proposal.quoteVerified ? "green" : "red"}`}>{proposal.quoteVerified ? "Verified source" : "Unverified source"}</span>
           {proposal.validityText && <p>Stated validity / expiry: {proposal.validityText} · {proposal.validityVerified ? "Wording matched; not an expiry assessment" : "Unverified wording"}</p>}
-          <h4>Target obligation source · Page {obligation.source.pageNumber}</h4><blockquote>{obligation.source.quote}</blockquote><p className="small-muted">Contract quote: {obligation.sourceVerified ? "matched to extracted page" : "not verified"}.</p>
+          <h4>Target obligation source · Page {obligation.source.pageNumber}</h4><blockquote>{obligation.source.quote}</blockquote><p className="small-muted">Contract quote: {obligation.sourceVerified ? "Verified source" : "Unverified source"}.</p>
           <Link className="text-link" href={`/contracts/upload#obligation-${obligation.id}`}>View obligation and operational state</Link>
         </div>
-        <details className="evidence-review"><summary>Review Match</summary><p>{proposal.reviewReason || "Check relevance, scope, parties and timing before accepting. Matching wording does not establish sufficiency."}</p>
+        <details className="evidence-review"><summary>HUMAN REVIEW · Review Match</summary><p>{proposal.reviewReason || "Check relevance, scope, parties and timing before accepting. Matching wording does not establish sufficiency."}</p>
           <p>Acceptance creates an association only. Ambiguous evidence keeps Needs Review until you explicitly confirm your review. Contract review flags remain independent.</p>
           {proposal.decision !== "rejected" && <button className="button secondary" disabled={!proposal.quoteVerified || !proposal.validityVerified || proposal.reviewed} onClick={() => session.decideEvidence(evidence.id, obligation.id, "review")}>{proposal.reviewed ? "Review recorded" : "Confirm relevance reviewed"}</button>}
         </details>

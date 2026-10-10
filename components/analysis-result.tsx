@@ -32,7 +32,7 @@ export function AnalysisResult() {
       <div><div className="eyebrow">YOUR DOCUMENT · OBLIGATION INTELLIGENCE</div><h2>{analysis.documentTitle}</h2></div>
       <span className="badge violet">Session only · Not persisted</span>
     </div>
-    <p className="small-muted">Your real analysis remains separate from the fictional demo workspace. Counts, statuses, relationships, and review routing below are calculated locally.</p>
+    <p className="small-muted">Review the source, interpretation and operational state below. Counts, statuses and review flags are calculated locally.</p>
     <Link href="/assistant" className="button secondary"><Icon name="spark" size={17} />Ask about this contract · No AI call</Link>
     <SectionCard title="Document summary" subtitle="AI INTERPRETATION · Check against the full document">
       <dl className="detail-grid">
@@ -51,7 +51,7 @@ export function AnalysisResult() {
       <p className="small-muted">{graph.nodes.length} graph nodes · {graph.edges.length} explicit relationships: document, obligation, party, deadline, evidence requirement, and source. No inferred dependencies.</p>
     </SectionCard>
     <SectionCard title="Human Review Queue" subtitle={`${intelligence.reviewQueue.length} obligations need attention · Deterministic review rules`}>
-      <div className="review-queue">
+      <div id="human-review" className="review-queue">
         {intelligence.reviewQueue.length ? intelligence.reviewQueue.map(o => <details key={o.id}>
           <summary>#{o.number} {o.title} <span className="badge amber">Needs Review</span></summary>
           <ul className="analysis-list">{o.reviewReasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul>
@@ -59,10 +59,10 @@ export function AnalysisResult() {
         </details>) : <p className="small-muted">No review flags were found by these rules. This is not human approval or a compliance conclusion.</p>}
       </div>
     </SectionCard>
-    {analysis.warnings.length > 0 && <SectionCard title="Analysis warnings" subtitle="REVIEW STATE · Consider these limitations before acting">
+    {analysis.warnings.length > 0 && <SectionCard title="Analysis warnings" subtitle="HUMAN REVIEW · Consider these limitations before acting">
       <ul className="analysis-list">{analysis.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul>
     </SectionCard>}
-    <div className="intelligence-toolbar">
+    <div id="real-obligations" className="intelligence-toolbar">
       <label>Find an obligation<input aria-label="Search real obligations" value={query} onChange={e => setQuery(e.target.value)} placeholder="Title, action, or party" /></label>
       <label>Filter obligations<select aria-label="Filter real obligations" value={filter} onChange={e => setFilter(e.target.value)}>
         <option value="all">All obligations</option><option value="review">Needs human review</option><option value="payment">Payment category</option><option value="evidence">Requires evidence</option>
@@ -87,7 +87,7 @@ export function AnalysisResult() {
       {o.evidenceRequired.length ? <ul className="analysis-list">{o.evidenceRequired.map((item, i) => <li key={i}>{item}</li>)}</ul> : <p className="small-muted">No explicit evidence requirement identified.</p>}
       <div className="analysis-source">
         <div className="analysis-heading"><div className="eyebrow">SOURCE · PAGE {o.source.pageNumber}</div>
-          <span className={`badge ${o.sourceVerified ? "green" : "red"}`}><Icon name={o.sourceVerified ? "check" : "alert"} size={13} />{o.sourceVerified ? "Quote matched to page" : "Quote not verified"}</span>
+          <span className={`badge ${o.sourceVerified ? "green" : "red"}`}><Icon name={o.sourceVerified ? "check" : "alert"} size={13} />{o.sourceVerified ? "Verified source" : "Unverified source"}</span>
         </div>
         <blockquote>{o.source.quote}</blockquote>
         <p className="small-muted">A matched citation confirms text on the extracted page, not interpretation, evidence validity, or legal compliance.</p>
@@ -101,7 +101,7 @@ export function AnalysisResult() {
         <label className="completion-control"><input type="checkbox" checked={o.completionRecorded} onChange={e => recordCompletion(o.id, e.target.checked)} />I have completed this task (session only)</label>
         <p>Recording completion does not clear review flags or missing evidence. It does not change the source or AI interpretation.</p>
       </div>
-      <div className="analysis-review"><div className="eyebrow">REVIEW STATE</div>
+      <div className="analysis-review"><div className="eyebrow">HUMAN REVIEW</div>
         <div className="analysis-badges"><span className={`badge ${o.confidence === "direct" ? "blue" : "amber"}`}>{confidenceLabels[o.confidence]}</span>{o.reviewRequired && <span className="badge amber">Needs Review</span>}</div>
         {o.reviewRequired ? <ul className="analysis-list">{o.reviewReasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul> : <p>No specific ambiguity was flagged. Review the interpretation and complete source before acting.</p>}
       </div>
