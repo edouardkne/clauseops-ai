@@ -6,6 +6,7 @@ import { Icon } from "./icon";
 import { EmptyState, SectionCard, StatusBadge } from "./ui";
 import { useAnalysisSession } from "./analysis-session";
 import { disclaimer } from "@/mock-data";
+import { ReceiptPreview } from "./receipt-preview";
 
 const confidenceLabels = { direct: "Direct", inferred: "Inferred", uncertain: "Uncertain" };
 
@@ -106,6 +107,7 @@ export function AnalysisResult() {
         {o.reviewRequired ? <ul className="analysis-list">{o.reviewReasons.map((reason, i) => <li key={i}>{reason}</li>)}</ul> : <p>No specific ambiguity was flagged. Review the interpretation and complete source before acting.</p>}
       </div>
     </article>)}
+    <ReceiptPreview />
     <p className="analysis-disclaimer">{disclaimer}</p>
   </section>;
 }

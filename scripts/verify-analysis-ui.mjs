@@ -134,6 +134,10 @@ try {
     await clickText("Reuse current analysis");
     check(apiCalls === baseline + 1, `${width}: repeated analysis reuses cached result`);
     check(await evaluate("document.body.textContent.includes('No AI request was sent')"), `${width}: cache reuse feedback`);
+    await clickText("Create receipt preview");
+    await until("!!document.querySelector('.receipt-preview dl')");
+    check(await evaluate("document.querySelector('.receipt-preview').textContent.includes('Verification not yet submitted to Chainlink CRE')"), `${width}: receipt has an explicit unsubmitted verification state`);
+    check(await evaluate("document.querySelector('.receipt-preview dd').textContent.startsWith('clauseops-v1-')"), `${width}: local receipt identifier is generated`);
     await evaluate("document.querySelector('.completion-control input').click()");
     await until("document.querySelector('.analysis-obligation .analysis-heading').textContent.includes('Completed')");
     check(await evaluate("document.querySelector('.analysis-obligation').textContent.includes('Task completion was recorded by the user')"), `${width}: explicit session completion changes status`);
@@ -148,6 +152,13 @@ try {
     check(await evaluate("document.querySelector('.analysis-result').textContent.includes('Verified source') && document.querySelector('.analysis-result').textContent.includes('Unverified source')"), `${width}: citation verification states retained`);
     check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: results have no horizontal overflow`);
     check(await evaluate("!document.querySelector('.analysis-result').textContent.includes('Grant_Agreement')"), `${width}: no fictional demo result`);
+    check(await evaluate("!document.querySelector('.receipt-preview dl') && document.querySelector('.receipt-preview').textContent.includes('The session changed')"), `${width}: state changes hide stale receipt metadata`);
+    await clickText("Regenerate receipt preview");
+    await until("!!document.querySelector('.receipt-preview dl')");
+    check(await evaluate("document.documentElement.scrollWidth <= innerWidth"), `${width}: receipt hashes wrap without global overflow`);
+    check(apiCalls === baseline + 1, `${width}: receipt generation makes no provider calls`);
+    await evaluate("document.querySelector('.receipt-preview').scrollIntoView({block:'center'})");
+    await screenshot(`receipt-preview-${width}`);
     await screenshot(`intelligence-result-${width}`);
     await clickText("Ask about this contract");
     await until("location.pathname === '/assistant' && !!document.querySelector('.current-contract')");
@@ -179,6 +190,9 @@ try {
     await reply(200, { analysis: { ...analysis, documentTitle: "Different synthetic document", obligations: [] } });
     await until("document.body.textContent.includes('No operational obligations identified')");
     check(await metric("Obligations found") === "0", `${width}: new document has isolated intelligence`);
+    await clickText("Create receipt preview");
+    await until("!!document.querySelector('.receipt-preview dl')");
+    check(await evaluate("Array.from(document.querySelectorAll('.receipt-preview dl > div')).find(d => d.querySelector('dt').textContent === 'Obligations included').querySelector('dd').textContent === '0'"), `${width}: zero-obligation receipt has zero included obligations`);
     await clickText("Clear analysis session");
     check(await evaluate("!document.querySelector('.analysis-result')"), `${width}: explicit session clearing works`);
   }

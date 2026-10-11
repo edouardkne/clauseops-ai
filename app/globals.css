@@ -3025,3 +3025,6 @@ blockquote {
 @media (max-width: 600px) { .evidence-document, .evidence-match { padding: 16px; } }
 .chat-heading > div { min-width: 0; }
 @media (max-width: 420px) { .chat-heading { flex-wrap: wrap; } .chat-heading > div { flex-basis: 65%; } }
+/* Long receipt identifiers must wrap inside narrow metadata columns. */
+.receipt-preview { min-width: 0; }
+.receipt-preview dd, .receipt-preview .badge { overflow-wrap: anywhere; white-space: normal; }

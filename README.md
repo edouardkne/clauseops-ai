@@ -61,7 +61,7 @@ Official SDK reference: https://developers.openai.com/api/docs/guides/structured
 
 ## Deliberate limitations
 
-No database, authentication, Featherless, multi-model review, Chainlink CRE, blockchain, evidence backend, OCR, billing, notifications, or sync. Calendar, reports, and demo contracts remain fictional Phase 1 features. Evidence Vault shows session evidence when a real contract is active; otherwise its historical demo is explicitly separate. The assistant uses only the current real analysis; it has no demo fallback. Evidence review labels are not independent verification. No analysis is persisted or automatically assigned as a compliance workflow.
+No database, authentication, Featherless, multi-model review, active Chainlink CRE submission, blockchain, evidence backend, OCR, billing, notifications, or sync. Calendar, reports, and demo contracts remain fictional Phase 1 features. Evidence Vault shows session evidence when a real contract is active; otherwise its historical demo is explicitly separate. The assistant uses only the current real analysis; it has no demo fallback. Evidence review labels are not independent verification. No analysis is persisted or automatically assigned as a compliance workflow.
 
 ClauseOps assists with obligation tracking and compliance operations. It does not provide legal advice.
 
@@ -99,3 +99,9 @@ Run `node scripts/verify-evidence-ui.mjs` against the built app and a dedicated 
 ## Phase 2D consolidation
 
 The primary navigation now follows the real session: contract analysis, obligations and human review, evidence, then local assistant. Historical sample pages remain explicitly fictional and separated in collapsed navigation. The landing uses a clearly labelled example clause, describes current capabilities, and routes primary actions to real analysis. Settings list local, on-request, session-only and upcoming capabilities. Source labels are consistently Verified source / Unverified source: they describe text matching only. Human review, interpretation and operational state remain separate. Existing extraction, provider, caching and decision logic is unchanged.
+
+## Step 3: local receipt and CRE foundation
+
+The real analysis page can create a metadata-only local Compliance Receipt. It invalidates the preview when session state changes and explicitly states that verification has not been submitted to Chainlink CRE. Shared strict validation and deterministic SHA-256 cover receipt integrity and snapshot consistency; neither proves legal compliance or document authenticity. No new provider calls, persistence, or submission API were added.
+
+The isolated `cre/` TypeScript workflow uses the same protocol with a WASM-compatible hash adapter and a synthetic HTTP input. See [CRE setup, protocol, privacy boundary and remaining environment steps](cre/README.md). Independent verification remains upcoming; this foundation is not an active integration.

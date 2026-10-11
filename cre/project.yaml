@@ -1,0 +1,3 @@
+# Simulation-only project. No RPCs, wallet keys, or deployment configuration.
+staging-settings:
+  rpcs: []

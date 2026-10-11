@@ -1,0 +1,33 @@
+{
+  "receiptVersion": "1",
+  "receiptId": "clauseops-v1-71bcad053e3c8ac82c992fdb4186b26bec34ef584dad254b61e4bb073e1c085b",
+  "createdAt": "2026-10-10T10:00:00.000Z",
+  "statusAsOf": "2026-10-10",
+  "documentFingerprint": "e2639d66c3a747f39489b5842b889a33484ac08b25ed74b71655c569efd93ab7",
+  "analysisFingerprint": "776f74c6754f71721c0c64b4e64315158e3d6b2b094be2a1ede80146672e3944",
+  "obligationSnapshotHash": "a6330fc8de5be0e1bd193cd543ad7d13708e38daf7f6fe5b53e138fa77ab5731",
+  "evidenceSnapshotHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "obligations": [
+    {
+      "id": "0e6dea65304b6a6bb65a4e368d9f3049b6e9f9ccf558fdccbf4c09fc50a87a7b",
+      "status": "Pending",
+      "reviewRequired": false,
+      "completionRecorded": false,
+      "sourceVerified": true,
+      "confidence": "direct"
+    }
+  ],
+  "evidence": [],
+  "reviewedObligations": [],
+  "acceptedEvidenceLinks": [],
+  "unresolvedReviewCount": 0,
+  "operationalStateSummary": {
+    "Pending": 1,
+    "Due Soon": 0,
+    "Overdue": 0,
+    "Missing Evidence": 0,
+    "Needs Review": 0,
+    "Completed": 0
+  },
+  "canonicalPayloadHash": "71bcad053e3c8ac82c992fdb4186b26bec34ef584dad254b61e4bb073e1c085b"
+}
