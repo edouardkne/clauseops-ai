@@ -3,13 +3,14 @@
 import { useRef, useState } from "react";
 import { useAnalysisSession } from "./analysis-session";
 import { SectionCard } from "./ui";
-import { createReceipt } from "@/lib/receipts/snapshot";
+import { createReceipt, sha256 } from "@/lib/receipts/snapshot";
 import type { ComplianceReceipt } from "@/lib/receipts/core";
+import { createLocalReceiptPreview, transitionVerificationState, type VerificationState } from "@/lib/receipts/lifecycle";
 import type { AnalysisSession } from "@/lib/intelligence/types";
 
 export function ReceiptPreview() {
   const { current, intelligence } = useAnalysisSession();
-  const [saved, setSaved] = useState<{ session: AnalysisSession; asOf: string; receipt: ComplianceReceipt } | null>(null);
+  const [saved, setSaved] = useState<{ session: AnalysisSession; asOf: string; receipt: ComplianceReceipt; verification: VerificationState } | null>(null);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState(false);
@@ -20,7 +21,11 @@ export function ReceiptPreview() {
     lock.current = true; setBusy(true); setError(false);
     try {
       const receipt = await createReceipt(current, intelligence.asOf, new Date().toISOString());
-      setSaved({ session: current, asOf: intelligence.asOf, receipt });
+      const preview = createLocalReceiptPreview(receipt);
+      const verification = await transitionVerificationState(preview, {
+        type: "validate-local-integrity", receipt, checkedAt: new Date().toISOString(),
+      }, sha256);
+      setSaved({ session: current, asOf: intelligence.asOf, receipt, verification });
     } catch { setError(true); }
     finally { lock.current = false; setBusy(false); }
   }
@@ -32,6 +37,8 @@ export function ReceiptPreview() {
       {saved && !receipt && <p role="status" className="small-muted">The session changed. Create a new snapshot to reflect the current state.</p>}
       {error && <p role="alert">The local snapshot could not be created. Review the session and try again.</p>}
       {receipt && <div aria-live="polite">
+        {saved?.verification.status === "local-integrity-valid" && <p className="badge green">Local receipt integrity validated · Not a Chainlink verification</p>}
+        {saved?.verification.status === "failed" && <p role="alert">Local receipt integrity validation failed. No CRE submission was made.</p>}
         <dl className="detail-grid">
           <div><dt>Receipt ID</dt><dd>{receipt.receiptId}</dd></div>
           <div><dt>Created (UTC)</dt><dd>{receipt.createdAt}</dd></div>

@@ -26,7 +26,7 @@ The SDK's `cre-setup` / WASM compilation installs Javy into the user's home cach
 
 ## Architecture and protocol
 
-`receipt/main.ts` registers an HTTP trigger with an empty simulation-only authorization config, bounds input to 1 MB, parses JSON, and returns a JSON-encoded verification result. **The trigger config is not production authorization.** Before any deployment, configure authorized callers using the official HTTP-trigger guide.
+`receipt/main.ts` registers an HTTP trigger with an empty simulation-only authorization config, bounds input to 1 MB, parses JSON, and returns a JSON-encoded verification result. **The trigger config is not production authorization.** Before any deployment, configure authorized callers using the official HTTP-trigger guide. There is no app-facing submission endpoint.
 
 `receipt/verify.ts` adapts standard SHA-256 from `@noble/hashes` to the same verifier used locally in the app (`../lib/receipts/core.ts`). It uses no AI, secrets, external APIs, blockchain writes, or payload logging. The sample contains only synthetic metadata; regenerate it with `bun run sample`.
 
@@ -42,10 +42,14 @@ The obligation/evidence snapshot hashes cover their normalized metadata. The pay
 
 A self-consistent receipt can be fabricated and rehashed by its sender. Hash validation is not a signature, identity attestation, timestamp authority, or proof that documents were actually processed. CRE cannot reproduce original text checks from hashes alone. Trusted submission, authenticated provenance, DON-signed output, and submission/result handling are future work. Hashes are not encryption and may remain linkable.
 
-The preview is session-only and becomes stale when session state or evaluation date changes. There is no persistence, live CRE submission, blockchain receipt, or independent attestation in this phase.
+The preview is session-only and becomes stale when session state or evaluation date changes. The app distinguishes a local preview from local payload-integrity validation. CRE simulation is a development/test lifecycle state only; it is not a submitted receipt or DON result. Strict metadata schemas for future submission acknowledgements, workflow results, simulations, and attestation references validate shape only: they do not authenticate the sender or cryptographically verify an attestation. No production transition accepts those claims.
+
+There is no persistence, live CRE submission, blockchain receipt, authenticated workflow result, or independent attestation in this phase. The browser-created receipt is not trusted provenance. A future server transport must remain server-only and requires authenticated provenance, authorization, durable/idempotent submission records, an approved deployed workflow and caller policy, and an official result/attestation verification mechanism. Those dependencies must be solved before submission or DON-verification states can be enabled.
 
 Official references: [HTTP trigger](https://docs.chain.link/cre/guides/workflow/using-triggers/http-trigger/configuration), [simulation](https://docs.chain.link/cre/guides/operations/simulating-workflows), [account access](https://docs.chain.link/cre/reference/cli/account), [TypeScript runtime](https://docs.chain.link/cre/concepts/typescript-wasm-runtime).
 
 ## Verification run
 
-`cre whoami`, the official `cre workflow simulate ./receipt --target staging-settings --non-interactive --trigger-index 0 --http-payload ./receipt/sample.json`, and `cre account access --non-interactive` report **not logged in / no credentials found**. Simulation and deployment-access inspection stop at authentication. No successful simulation or deployment access is claimed. Next user action: `cre login`, then repeat the simulation and access check above. No account was created or accessed automatically.
+On **October 14, 2026**, the official Chainlink CRE workflow **compiled successfully** and the local workflow **simulation completed successfully** with the synthetic receipt. The synthetic receipt result was `valid: true` with scope `payload-integrity-only`. This confirms local workflow execution and receipt payload-integrity checks only; it is not a deployment, production submission, DON attestation, legal-compliance result, or proof of receipt provenance.
+
+A deployment access request was submitted under the Hackathon category, but approval has **not** been confirmed. No deployed workflow, production caller authorization, production CRE endpoint, authenticated CRE result, or independently verified DON attestation exists. The live application therefore continues to display “Verification not yet submitted to Chainlink CRE.”
