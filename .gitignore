@@ -44,3 +44,4 @@ next-env.d.ts
 /.tools/
 /cre/node_modules/
 /cre/**/*.wasm
+/cre/receipt/.cre_build_tmp.*

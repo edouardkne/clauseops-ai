@@ -1,3 +1,5 @@
-# Simulation-only project. No RPCs, wallet keys, or deployment configuration.
+# Simulation-only project. Public Sepolia RPC; no wallet keys or deployment configuration.
 staging-settings:
-  rpcs: []
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com

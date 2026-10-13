@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { verifyWorkflowReceipt, workflowDigest } from "../receipt/verify";
-import { onReceipt } from "../receipt/main";
-import type { HTTPPayload, Runtime } from "@chainlink/cre-sdk";
+import { onReceipt } from "../receipt/handler";import type { HTTPPayload, Runtime } from "@chainlink/cre-sdk";
 
 const sample = await Bun.file(new URL("../receipt/sample.json", import.meta.url)).json();
 test("CRE digest matches standard SHA-256 known-answer vectors", () => {
