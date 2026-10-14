@@ -5,9 +5,13 @@ import { test } from "node:test";
 import type { AnalyzeContractRequest, VerifiedContractAnalysis, VerifiedObligation } from "../lib/ai/contract-analysis-schema";
 import { deriveIntelligence, normalizeDeadline } from "../lib/intelligence/engine";
 import { buildObligationGraph } from "../lib/intelligence/graph";
-import { AnalysisCache, documentFingerprint } from "../lib/intelligence/analysis-cache";
+import { AnalysisCache, documentContentFingerprint, documentFingerprint, hasSameDocumentContent } from "../lib/intelligence/analysis-cache";
+import { addIndependentEvidence, resolveContractReplacement } from "../lib/intelligence/session-state";
 import { answerQuery, LOCAL_QUESTIONS, routeQuery } from "../lib/intelligence/queries";
-import type { OperationalState } from "../lib/intelligence/types";
+import type { AnalysisSession, OperationalState } from "../lib/intelligence/types";
+import type { SessionEvidence } from "../lib/evidence/types";
+import { createEvidence } from "../lib/evidence/logic";
+import type { ExtractedDocument } from "../lib/pdf/types";
 
 const today = "2026-10-01";
 const state: OperationalState = { completed: {}, evidenceLinks: [] };
@@ -30,6 +34,47 @@ const mixed = analysis([
   obligation({ id: "e", title: "Deliver service", category: "service_delivery", deadlineText: "2026-10-03" }),
 ]);
 const intelligence = deriveIntelligence(mixed, state, today);
+function activeSessionWithDecisions(): AnalysisSession {
+  const obligations = Array.from({ length: 14 }, (_, index) => obligation({ id: `obligation-${index + 1}` }));
+  const evidence: SessionEvidence = {
+    id: "evidence-1",
+    fingerprint: "b".repeat(64),
+    contentFingerprint: "c".repeat(64),
+    filename: "accepted-evidence.pdf",
+    fileType: "application/pdf",
+    size: 10,
+    addedAt: "2026-10-01T00:00:00.000Z",
+    extractionStatus: "extracted",
+    pages: [{ pageNumber: 1, text: "Supporting source.", characterCount: 18 }],
+    proposals: [{
+      obligationId: "obligation-14",
+      match: "strong",
+      explanation: "Synthetic reviewed association.",
+      pageNumber: 1,
+      supportingEvidenceQuote: "Supporting source.",
+      quoteVerified: true,
+      validityText: null,
+      validityVerified: true,
+      needsHumanReview: false,
+      reviewReason: null,
+      method: "local",
+      decision: "accepted",
+      reviewed: true,
+    }],
+  };
+  return {
+    key: "contract-key",
+    contentFingerprint: "a".repeat(64),
+    filename: "service-agreement.pdf",
+    pageCount: 4,
+    analysis: analysis(obligations),
+    state: {
+      completed: { "obligation-14": true },
+      evidenceLinks: [{ evidenceId: evidence.id, obligationId: "obligation-14" }],
+      evidence: [evidence],
+    },
+  };
+}
 
 test("intelligence summary derives all eleven counts including verified and unverified citations", () => {
   assert.deepEqual(intelligence.summary, { total: 5, direct: 3, inferred: 1, uncertain: 1, needsReview: 3, verified: 4, unverified: 1, withDeadlines: 3, requiringEvidence: 2, missingResponsibleParty: 2, withoutClearDeadline: 3 });
@@ -80,6 +125,92 @@ test("missing information remains missing rather than generating dates or owners
   assert.equal(o.deadline.kind, "missing");
   assert.equal(o.recurrence, null);
   assert.deepEqual(o.evidenceRequired, []);
+});
+
+test("cancelling a replacement preserves active analysis and all session decisions", () => {
+  const active = activeSessionWithDecisions();
+  const sessions = new Map([[active.key, active]]);
+  assert.equal(resolveContractReplacement(sessions, active, false), active);
+  assert.equal(sessions.get(active.key), active);
+  assert.equal(sessions.get(active.key)?.analysis.obligations.length, 14);
+  assert.deepEqual(sessions.get(active.key)?.state.evidenceLinks, [{ evidenceId: "evidence-1", obligationId: "obligation-14" }]);
+  assert.deepEqual(sessions.get(active.key)?.state.completed, { "obligation-14": true });
+  assert.equal(sessions.get(active.key)?.state.evidence?.[0].proposals[0].reviewed, true);
+});
+
+test("confirming replacement discards only the active contract's incompatible session", () => {
+  const active = activeSessionWithDecisions();
+  const other: AnalysisSession = { ...active, key: "other-contract", filename: "other.pdf" };
+  const sessions = new Map([[active.key, active], [other.key, other]]);
+  assert.equal(resolveContractReplacement(sessions, active, true), null);
+  assert.equal(sessions.has(active.key), false);
+  assert.equal(sessions.get(other.key), other);
+  assert.equal(resolveContractReplacement(sessions, null, true), null);
+});
+
+test("same extracted contract content is recognized across filename changes", async () => {
+  const pages = [{ pageNumber: 1, text: "Synthetic service contract.", characterCount: 27 }];
+  const first = await documentContentFingerprint({ pages });
+  const renamed = await documentContentFingerprint({ pages: [...pages] });
+  const keyOne = await documentFingerprint({ filename: "original.pdf", pages });
+  const keyRenamed = await documentFingerprint({ filename: "renamed-copy.pdf", pages });
+  assert.equal(hasSameDocumentContent(first, renamed), true);
+  assert.notEqual(keyOne, keyRenamed);
+  const active: AnalysisSession = {
+    key: keyOne,
+    contentFingerprint: first,
+    filename: "original.pdf",
+    pageCount: 1,
+    analysis: analysis([obligation()]),
+    state: { completed: {}, evidenceLinks: [] },
+  };
+  const sessions = new Map([[active.key, active]]);
+  assert.equal(resolveContractReplacement(sessions, active, !hasSameDocumentContent(first, renamed)), active);
+  assert.equal(sessions.get(active.key), active);
+  const document = {
+    filename: "renamed-copy.pdf",
+    size: 100,
+    mimeType: "application/pdf",
+    pageCount: 1,
+    characterCount: 27,
+    pages,
+  };
+  const selfEvidence = await createEvidence(document, active.analysis.obligations);
+  assert.equal(addIndependentEvidence(active, selfEvidence), active);
+});
+
+test("adding independent evidence preserves the active 14-obligation contract", async () => {
+  const obligations = Array.from({ length: 14 }, (_, index) => obligation({ id: `obligation-${index + 1}` }));
+  const contractDocument: ExtractedDocument = {
+    filename: "00_DEMO_SERVICE_AGREEMENT.pdf",
+    size: 100,
+    mimeType: "application/pdf",
+    pageCount: 1,
+    characterCount: 35,
+    pages: [{ pageNumber: 1, text: "Synthetic service agreement terms.", characterCount: 35 }],
+  };
+  const evidenceDocument: ExtractedDocument = {
+    filename: "E01_ONBOARDING_CHECKLIST.pdf",
+    size: 90,
+    mimeType: "application/pdf",
+    pageCount: 1,
+    characterCount: 36,
+    pages: [{ pageNumber: 1, text: "Completed onboarding checklist.", characterCount: 31 }],
+  };
+  const active: AnalysisSession = {
+    key: "service-contract",
+    contentFingerprint: await documentContentFingerprint({ pages: contractDocument.pages }),
+    filename: contractDocument.filename,
+    pageCount: 1,
+    analysis: analysis(obligations),
+    state: { completed: {}, evidenceLinks: [] },
+  };
+  const evidence = await createEvidence(evidenceDocument, obligations);
+  const updated = addIndependentEvidence(active, evidence);
+  assert.equal(updated.key, active.key);
+  assert.equal(updated.analysis.obligations.length, 14);
+  assert.equal(updated.state.evidence?.length, 1);
+  assert.equal(updated.state.evidenceLinks.length, 0);
 });
 
 test("deadline normalization accepts only valid standalone explicit dates", () => {
@@ -257,15 +388,21 @@ test("session cache coalesces pending requests and reuses fulfilled unchanged-do
   assert.equal(calls, 2);
 });
 
-test("failed or aborted analysis is retryable; cache is isolated and explicitly clearable", async () => {
+test("failed analysis is retryable and replacement can discard only the active cached analysis", async () => {
   const cache = new AnalysisCache();
   let calls = 0;
   await assert.rejects(cache.run("doc", async () => { calls++; throw new Error("Mock failure"); }));
   await cache.run("doc", async () => { calls++; return mixed; });
   assert.equal(calls, 2);
+  await cache.run("other", async () => { calls++; return mixed; });
+  assert.equal(calls, 3);
+  cache.delete("doc");
+  await cache.run("doc", async () => { calls++; return mixed; });
+  await cache.run("other", async () => { calls++; return mixed; });
+  assert.equal(calls, 4);
   cache.clear();
   await cache.run("doc", async () => { calls++; return mixed; });
-  assert.equal(calls, 3);
+  assert.equal(calls, 5);
   await new AnalysisCache().run("doc", async () => { calls++; return mixed; });
-  assert.equal(calls, 4);
+  assert.equal(calls, 6);
 });

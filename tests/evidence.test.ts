@@ -10,6 +10,7 @@ import { EVIDENCE_QUESTIONS } from "../lib/evidence/queries";
 import { handleEvidenceRequest } from "../lib/evidence/handler";
 import { createEvidenceMatcher, EVIDENCE_INSTRUCTIONS } from "../lib/evidence/model";
 import { readConfiguration } from "../lib/ai/model";
+import { documentContentFingerprint, hasSameDocumentContent } from "../lib/intelligence/analysis-cache";
 
 const obligation: VerifiedObligation = { id: "f31dd766-f761-4e52-a649-1259bd7b5d42", title: "Pay invoice", action: "Pay supplier invoice", description: "Pay supplier.", category: "payment", responsibleParty: "Customer", deadlineText: null, recurrence: null, evidenceRequired: ["Payment receipt"], confidence: "direct", needsHumanReview: false, reviewReason: null, sourceVerified: true, source: { pageNumber: 1, quote: "Pay the supplier." } };
 const document: ExtractedDocument = { filename: "Receipt.pdf", size: 321, mimeType: "application/pdf", pageCount: 1, characterCount: 42, pages: [{ pageNumber: 1, text: "Payment receipt. Invoice 42 paid in full.", characterCount: 42 }] };
@@ -29,6 +30,39 @@ test("evidence session model stores text metadata and local proposals without bi
   assert.equal(evidence.proposals[0].decision, "proposed");
   assert.equal(withEvidence(base, [evidence]).evidenceLinks.length, 0);
   assert.equal("binary" in evidence, false);
+  assert.match(evidence.contentFingerprint, /^[a-f0-9]{64}$/);
+});
+test("same extracted contract content is not independent evidence, regardless of filename", async () => {
+  const contractFingerprint = await documentContentFingerprint({ pages: document.pages });
+  const renamedCopy = { ...document, filename: "different-name.pdf" };
+  const evidenceFingerprint = await documentContentFingerprint({ pages: renamedCopy.pages });
+  assert.equal(hasSameDocumentContent(contractFingerprint, evidenceFingerprint), true);
+  const evidence = await createEvidence(renamedCopy, [obligation]);
+  assert.equal(hasSameDocumentContent(contractFingerprint, evidence.contentFingerprint), true);
+});
+test("separate onboarding evidence remains associable with the contract obligation", async () => {
+  const onboarding: VerifiedObligation = {
+    ...obligation,
+    id: "f31dd766-f761-4e52-a649-1259bd7b5d43",
+    title: "Deliver onboarding checklist",
+    action: "Deliver the completed onboarding checklist",
+    evidenceRequired: ["Completed onboarding checklist"],
+  };
+  const evidenceDocument: ExtractedDocument = {
+    filename: "E01_ONBOARDING_CHECKLIST.pdf",
+    size: 512,
+    mimeType: "application/pdf",
+    pageCount: 1,
+    characterCount: 75,
+    pages: [{ pageNumber: 1, text: "Completed onboarding checklist. Customer orientation completed.", characterCount: 62 }],
+  };
+  const contractFingerprint = await documentContentFingerprint({ pages: document.pages });
+  const evidence = await createEvidence(evidenceDocument, [onboarding]);
+  assert.equal(hasSameDocumentContent(contractFingerprint, evidence.contentFingerprint), false);
+  assert.equal(evidence.proposals[0].obligationId, onboarding.id);
+  const accepted = decideMatch(evidence, onboarding.id, "accept");
+  assert.equal(accepted.proposals[0].decision, "accepted");
+  assert.deepEqual(withEvidence(base, [accepted]).evidenceLinks, [{ evidenceId: evidence.id, obligationId: onboarding.id }]);
 });
 test("evidence strong AI match is a grounded proposal, never an accepted link", () => {
   const [match] = verifyEvidenceMatches({ matches: [raw] }, input);

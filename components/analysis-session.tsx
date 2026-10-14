@@ -9,14 +9,16 @@ import type { AnalysisSession, Intelligence, ObligationGraph } from "@/lib/intel
 import type { SessionEvidence } from "@/lib/evidence/types";
 import type { VerifiedMatch } from "@/lib/evidence/schema";
 import { EvidenceMatchCache, decideMatch, mergeProposals, withEvidence } from "@/lib/evidence/logic";
+import { hasSameDocumentContent } from "@/lib/intelligence/analysis-cache";
+import { addIndependentEvidence, resolveContractReplacement } from "@/lib/intelligence/session-state";
 
 type SessionContext = {
   current: AnalysisSession | null;
   intelligence: Intelligence | null;
   graph: ObligationGraph | null;
   cache: AnalysisCache;
-  activate: (key: string, filename: string, pageCount: number, analysis: VerifiedContractAnalysis) => void;
-  clearCurrent: () => void;
+  activate: (key: string, contentFingerprint: string, filename: string, pageCount: number, analysis: VerifiedContractAnalysis) => void;
+  replaceCurrent: () => void;
   forgetAll: () => void;
   recordCompletion: (id: string, completed: boolean) => void;
   refreshDate: () => void;
@@ -36,8 +38,11 @@ export function AnalysisSessionProvider({ children }: { children: ReactNode }) {
   const intelligence = useMemo(() => current ? deriveIntelligence(current.analysis, current.state, asOf) : null, [current, asOf]);
   const graph = useMemo(() => current ? buildObligationGraph(current) : null, [current]);
 
-  function activate(key: string, filename: string, pageCount: number, analysis: VerifiedContractAnalysis) {
-    const session = sessions.current.get(key) || { key, filename, pageCount, analysis, state: { completed: {}, evidenceLinks: [] } };
+  function activate(key: string, contentFingerprint: string, filename: string, pageCount: number, analysis: VerifiedContractAnalysis) {
+    const existing = sessions.current.get(key);
+    const session = existing
+      ? { ...existing, contentFingerprint }
+      : { key, contentFingerprint, filename, pageCount, analysis, state: { completed: {}, evidenceLinks: [] } };
     sessions.current.set(key, session);
     setCurrent(session);
     setAsOf(new Date().toISOString().slice(0, 10));
@@ -55,12 +60,33 @@ export function AnalysisSessionProvider({ children }: { children: ReactNode }) {
     sessions.current.set(key, updated);
     setCurrent(previous => previous?.key === key ? updated : previous);
   }
+  function addEvidence(key: string, evidence: SessionEvidence) {
+    const saved = sessions.current.get(key);
+    if (!saved) return;
+    const updated = addIndependentEvidence(saved, evidence);
+    if (updated === saved) return;
+    sessions.current.set(key, updated);
+    setCurrent(previous => previous?.key === key ? updated : previous);
+  }
+  function proposeEvidence(key: string, id: string, matches: VerifiedMatch[]) {
+    const saved = sessions.current.get(key);
+    const item = saved?.state.evidence?.find(e => e.id === id);
+    if (!saved || !item || hasSameDocumentContent(saved.contentFingerprint, item.contentFingerprint)) return;
+    updateEvidence(key, items => items.map(e => e.id === id ? mergeProposals(e, matches.filter(m => saved.analysis.obligations.some(o => o.id === m.obligationId))) : e));
+  }
+  function decideEvidence(id: string, obligationId: string, action: "accept" | "reject" | "review") {
+    if (!current || hasSameDocumentContent(current.contentFingerprint, current.state.evidence?.find(e => e.id === id)?.contentFingerprint)) return;
+    updateEvidence(current.key, items => items.map(e => e.id === id ? decideMatch(e, obligationId, action) : e));
+  }
+  function replaceCurrent() {
+    if (!current) return;
+    cache.delete(current.key);
+    evidenceCache.clear();
+    setCurrent(resolveContractReplacement(sessions.current, current, true));
+  }
   return <Context.Provider value={{
-    current, intelligence, graph, cache, activate, recordCompletion, evidenceCache,
-    addEvidence: (key, evidence) => updateEvidence(key, items => items.some(e => e.fingerprint === evidence.fingerprint) ? items : [...items, evidence]),
-    proposeEvidence: (key, id, matches) => updateEvidence(key, items => items.map(e => e.id === id ? mergeProposals(e, matches.filter(m => sessions.current.get(key)?.analysis.obligations.some(o => o.id === m.obligationId))) : e)),
-    decideEvidence: (id, obligationId, action) => { if (current) updateEvidence(current.key, items => items.map(e => e.id === id ? decideMatch(e, obligationId, action) : e)); },
-    clearCurrent: () => setCurrent(null),
+    current, intelligence, graph, cache, activate, recordCompletion, evidenceCache, addEvidence, proposeEvidence, decideEvidence,
+    replaceCurrent,
     forgetAll: () => { cache.clear(); evidenceCache.clear(); sessions.current.clear(); setCurrent(null); },
     refreshDate: () => setAsOf(new Date().toISOString().slice(0, 10)),
   }}>{children}</Context.Provider>;

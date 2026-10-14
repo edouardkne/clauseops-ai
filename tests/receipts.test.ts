@@ -9,11 +9,11 @@ const time = "2026-10-10T10:00:00.000Z";
 const date = "2026-10-10";
 const nodeDigest = (text: string) => createHash("sha256").update(text).digest("hex");
 function session(): AnalysisSession {
-  return { key: "a".repeat(64), filename: "PRIVATE-CONTRACT.pdf", pageCount: 1,
+  return { key: "a".repeat(64), contentFingerprint: "d".repeat(64), filename: "PRIVATE-CONTRACT.pdf", pageCount: 1,
     analysis: { documentTitle: "PRIVATE-TITLE", documentType: "Agreement", language: "English", summary: "PRIVATE-SUMMARY", parties: ["PRIVATE-PERSON"], warnings: [],
       obligations: [{ id: "private-obligation-id", title: "PRIVATE-TASK", description: "PRIVATE-DESCRIPTION", action: "Pay", responsibleParty: "PRIVATE-PERSON", category: "payment", deadlineText: "2026-10-30", recurrence: null, evidenceRequired: ["Receipt"], confidence: "direct", needsHumanReview: false, reviewReason: null, source: { pageNumber: 1, quote: "PRIVATE-CONTRACT-TEXT" }, sourceVerified: true }],
     }, state: { completed: {}, evidenceLinks: [], evidence: [{
-      id: "private-evidence-id", fingerprint: "b".repeat(64), filename: "PRIVATE-EVIDENCE.pdf", fileType: "application/pdf", size: 100, addedAt: time, extractionStatus: "extracted", pages: [{ pageNumber: 1, text: "PRIVATE-EVIDENCE-TEXT", characterCount: 21 }],
+      id: "private-evidence-id", fingerprint: "b".repeat(64), contentFingerprint: "c".repeat(64), filename: "PRIVATE-EVIDENCE.pdf", fileType: "application/pdf", size: 100, addedAt: time, extractionStatus: "extracted", pages: [{ pageNumber: 1, text: "PRIVATE-EVIDENCE-TEXT", characterCount: 21 }],
       proposals: [{ obligationId: "private-obligation-id", match: "strong", explanation: "PRIVATE-EXPLANATION", pageNumber: 1, supportingEvidenceQuote: "PRIVATE-EVIDENCE-TEXT", needsHumanReview: false, reviewReason: null, validityText: null, quoteVerified: true, validityVerified: true, method: "local", decision: "accepted", reviewed: false }],
     }] } };
 }

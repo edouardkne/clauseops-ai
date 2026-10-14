@@ -10,6 +10,7 @@ import type { SessionEvidence } from "@/lib/evidence/types";
 import { candidateShortlist, createEvidence, evidenceNeedsReview, matchingKey, toCandidate } from "@/lib/evidence/logic";
 import { EvidenceRequestSchema, EvidenceResultSchema } from "@/lib/evidence/schema";
 import { AI_ANALYSIS_LIMITS } from "@/lib/ai/contract-analysis-schema";
+import { documentContentFingerprint, hasSameDocumentContent } from "@/lib/intelligence/analysis-cache";
 
 export function EvidenceIntelligence({ current }: { current: AnalysisSession }) {
   const session = useAnalysisSession();
@@ -27,10 +28,15 @@ export function EvidenceIntelligence({ current }: { current: AnalysisSession }) 
     try {
       const { extractPdfDocument } = await import("@/lib/pdf/extract");
       const document = await extractPdfDocument(file);
+      const contentFingerprint = await documentContentFingerprint({ pages: document.pages });
+      if (hasSameDocumentContent(contentFingerprint, current.contentFingerprint)) {
+        if (alive.current) setMessage("This PDF has the same extracted page content as the active contract, even if its filename differs. It cannot be added as independent evidence.");
+        return;
+      }
       const item = await createEvidence(document, current.analysis.obligations);
       if (!alive.current) return;
       session.addEvidence(current.key, item);
-      setMessage(evidence.some(e => e.fingerprint === item.fingerprint) ? "Existing evidence reused. Previous decisions are preserved." : "Evidence extracted locally. No AI request sent.");
+      setMessage(evidence.some(e => e.contentFingerprint === item.contentFingerprint) ? "Existing evidence reused. Previous decisions are preserved." : "Evidence extracted locally. No AI request sent.");
     } catch {
       if (alive.current) setError("This PDF could not be extracted. Use a readable, text-based PDF up to 10 MB and 100 pages. Scanned, encrypted or malformed PDFs are not supported; OCR is unavailable.");
     } finally { busy.current = false; if (alive.current) setExtracting(false); }
@@ -44,7 +50,7 @@ export function EvidenceIntelligence({ current }: { current: AnalysisSession }) 
         <input aria-label="Choose evidence PDF" type="file" accept=".pdf,application/pdf" disabled={extracting} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
         <span>PDF only · 10 MB · 100 pages · no OCR</span>
       </label>
-      <p className="small-muted">The PDF binary stays local. Only clicking Match Evidence with AI sends extracted evidence text and selected structured obligations through our server to OpenAI. No full contract is resent. Results and decisions live in workspace memory and clear on refresh or Clear analysis session. OpenAI data policies apply to text you choose to transmit.</p>
+      <p className="small-muted">The PDF binary stays local. Only clicking Match Evidence with AI sends extracted evidence text and selected structured obligations through our server to OpenAI. No full contract is resent. Results and decisions live in workspace memory, survive ordinary navigation, and clear on page refresh, tab close, or Clear analysis session; a server restart may reload the app. OpenAI data policies apply to text you choose to transmit.</p>
       <div aria-live="polite">{extracting && <p role="status">Extracting evidence locally…</p>}{message && <p role="status">{message}</p>}{error && <p role="alert" className="error-message">{error}</p>}</div>
     </SectionCard></div>}
     {!evidence.length && <EmptyState title="No evidence in this session" description="Add a PDF to see local candidates. Associations are created only after you accept a match." />}
@@ -56,6 +62,7 @@ export function EvidenceIntelligence({ current }: { current: AnalysisSession }) 
 function EvidenceDocument({ evidence, current }: { evidence: SessionEvidence; current: AnalysisSession }) {
   const session = useAnalysisSession();
   const obligations = current.analysis.obligations;
+  const sameDocument = hasSameDocumentContent(current.contentFingerprint, evidence.contentFingerprint);
   const [selected, setSelected] = useState<string[]>(() => candidateShortlist(evidence, obligations).filter(c => !evidence.proposals.some(p => p.obligationId === c.id && p.match === "strong")).map(c => c.id));
   const [matching, setMatching] = useState(false);
   const [message, setMessage] = useState("");
@@ -66,6 +73,10 @@ function EvidenceDocument({ evidence, current }: { evidence: SessionEvidence; cu
   useEffect(() => { alive.current = true; return () => { alive.current = false; controller.current?.abort(); }; }, []);
   async function match() {
     if (busy.current || !selected.length) return;
+    if (hasSameDocumentContent(current.contentFingerprint, evidence.contentFingerprint)) {
+      setError("This document matches the active contract content and cannot be used as independent evidence.");
+      return;
+    }
     setMessage(""); setError("");
     const parsed = EvidenceRequestSchema.safeParse({ evidence: { filename: evidence.filename, pages: evidence.pages.map(p => ({ pageNumber: p.pageNumber, text: p.text })) }, obligations: obligations.filter(o => selected.includes(o.id)).map(toCandidate) });
     if (!parsed.success) { setError("AI matching supports up to 8 candidates, 250,000 evidence characters total and 50,000 per page. Local preview remains available."); return; }
@@ -93,6 +104,9 @@ function EvidenceDocument({ evidence, current }: { evidence: SessionEvidence; cu
     <div className="analysis-heading"><div><div className="eyebrow">EVIDENCE DOCUMENT</div><h2>{evidence.filename}</h2></div><span className="badge green">Text extracted locally</span></div>
     <dl className="detail-grid"><div><dt>Type / size</dt><dd>{evidence.fileType} · {Math.ceil(evidence.size / 1024)} KB</dd></div><div><dt>Added</dt><dd>{new Date(evidence.addedAt).toLocaleString("en-GB")}</dd></div><div><dt>Text available</dt><dd>{evidence.pages.length} pages · {evidence.pages.reduce((n,p) => n+p.text.length,0).toLocaleString()} characters</dd></div><div><dt>Accepted associations</dt><dd>{evidence.proposals.filter(p => p.decision === "accepted").length}</dd></div></dl>
     <details className="evidence-preview"><summary>Preview extracted evidence pages</summary>{evidence.pages.map(page => <div key={page.pageNumber}><h4>Page {page.pageNumber}</h4><pre>{page.text || "No text on this page."}</pre></div>)}</details>
+    {sameDocument
+      ? <p role="alert" className="error-message">This evidence has the same extracted page content as the active contract. It is not independent corroboration and cannot be matched or accepted.</p>
+      : <>
     <details className="evidence-candidates" open={!evidence.proposals.length}>
       <summary>Semantic matching candidates ({selected.length}/8 selected)</summary>
       <p className="small-muted">Local filename, category and requirement clues shortlist up to eight obligations. If no clue matches, select relevant candidates yourself. A shortlist can miss relevant obligations. Exact local proposals need no AI call.</p>
@@ -121,5 +135,6 @@ function EvidenceDocument({ evidence, current }: { evidence: SessionEvidence; cu
         {proposal.decision === "rejected" && <p className="small-muted">Rejected in this session. Reusing or reselecting this unchanged evidence will not restore the proposal.</p>}
       </section>;
     })}</div>
+      </>}
   </article>;
 }

@@ -2,7 +2,7 @@ import { verifySourceQuote } from "../ai/verify-sources";
 import type { VerifiedObligation } from "../ai/contract-analysis-schema";
 import type { ExtractedDocument } from "../pdf/types";
 import type { OperationalState } from "../intelligence/types";
-import { documentFingerprint } from "../intelligence/analysis-cache";
+import { documentContentFingerprint, documentFingerprint } from "../intelligence/analysis-cache";
 import { EvidenceModelSchema, type Candidate, type EvidenceRequest, type VerifiedMatch } from "./schema";
 import type { EvidenceProposal, SessionEvidence } from "./types";
 
@@ -66,6 +66,7 @@ export function localProposals(document: ExtractedDocument, obligations: Verifie
 }
 export async function createEvidence(document: ExtractedDocument, obligations: VerifiedObligation[]): Promise<SessionEvidence> {
   return { id: crypto.randomUUID(), fingerprint: await documentFingerprint({ filename: document.filename, pages: document.pages }),
+    contentFingerprint: await documentContentFingerprint({ pages: document.pages }),
     filename: document.filename, fileType: document.mimeType, size: document.size, addedAt: new Date().toISOString(),
     extractionStatus: "extracted", pages: document.pages, proposals: localProposals(document, obligations) };
 }

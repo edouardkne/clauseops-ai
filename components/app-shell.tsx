@@ -86,7 +86,7 @@ export function AppShell({ children }: {
       <main id="main-content" className="app-main"><WorkflowNav />{children}</main>
       <footer className="app-footer">
         <span>{disclaimer}</span>
-        <span>Session-only tracking · Independent verification upcoming</span>
+        <span>Memory-only session · Refresh or closing the tab clears unsaved work</span>
       </footer>
     </div>
   </div>;

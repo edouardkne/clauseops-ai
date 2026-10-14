@@ -7,7 +7,7 @@ export type EvidenceProposal = VerifiedMatch & {
   reviewed: boolean;
 };
 export type SessionEvidence = {
-  id: string; fingerprint: string; filename: string; fileType: string; size: number; addedAt: string;
+  id: string; fingerprint: string; contentFingerprint: string; filename: string; fileType: string; size: number; addedAt: string;
   extractionStatus: "extracted"; pages: ExtractedDocument["pages"];
   proposals: EvidenceProposal[];
 };

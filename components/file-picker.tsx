@@ -8,7 +8,7 @@ import type { ExtractedDocument } from "../lib/pdf/types";
 import { Icon } from "./icon";
 import { AnalysisResult } from "./analysis-result";
 import { useAnalysisSession } from "./analysis-session";
-import { documentFingerprint } from "../lib/intelligence/analysis-cache";
+import { documentContentFingerprint, documentFingerprint, hasSameDocumentContent } from "../lib/intelligence/analysis-cache";
 import { AI_ANALYSIS_LIMITS, AnalyzeContractRequestSchema, VerifiedContractAnalysisSchema } from "../lib/ai/contract-analysis-schema";
 
 type FilePickerKind = "contract" | "evidence";
@@ -58,9 +58,10 @@ export function FilePicker({
   const busy = useRef(false);
   const [analyzing, setAnalyzing] = useState(false);
   const session = useAnalysisSession();
-  const analysis = kind === "contract" ? session.current?.analysis : undefined;
   const [reuseMessage, setReuseMessage] = useState("");
   const [analysisError, setAnalysisError] = useState("");
+  const [contentFingerprint, setContentFingerprint] = useState<string | null>(null);
+  const [replacementPending, setReplacementPending] = useState(false);
 
   useEffect(() => () => {
     revision.current++;
@@ -90,11 +91,12 @@ export function FilePicker({
     activeRequest.current = null;
     busy.current = false;
     setAnalyzing(false);
-    if (kind === "contract") session.clearCurrent();
     setReuseMessage("");
     setAnalysisError("");
     setFile(null);
     setDocument(null);
+    setContentFingerprint(null);
+    setReplacementPending(false);
     setError("");
     setProcessing(false);
 
@@ -106,11 +108,12 @@ export function FilePicker({
   async function choose(selected?: File) {
     if (!selected || busy.current) return;
     const currentRevision = ++revision.current;
-    if (kind === "contract") session.clearCurrent();
     setReuseMessage("");
     setAnalysisError("");
     setError("");
     setDocument(null);
+    setContentFingerprint(null);
+    setReplacementPending(false);
 
     if (!selected) {
       return;
@@ -153,11 +156,22 @@ export function FilePicker({
       const extracted =
         await extractPdfDocument(selected);
 
-      if (currentRevision === revision.current) setDocument(extracted);
+      if (currentRevision === revision.current) {
+        const fingerprint = await documentContentFingerprint({ pages: extracted.pages });
+        if (currentRevision !== revision.current) return;
+        setDocument(extracted);
+        setContentFingerprint(fingerprint);
+        if (isContract && session.current && !hasSameDocumentContent(session.current.contentFingerprint, fingerprint)) {
+          setReplacementPending(true);
+        } else if (isContract && session.current) {
+          setReuseMessage("This file has the same extracted page content as the active contract. The existing analysis and session decisions are preserved.");
+        }
+      }
     } catch (caught) {
       if (currentRevision !== revision.current) return;
       setFile(null);
       setDocument(null);
+      setContentFingerprint(null);
 
       setError(
         caught instanceof Error
@@ -178,6 +192,16 @@ export function FilePicker({
 
   async function analyze() {
     if (!document || busy.current) return;
+    const activeSession = isContract ? session.current : null;
+    if (activeSession && hasSameDocumentContent(contentFingerprint, activeSession.contentFingerprint)) {
+      setReuseMessage("This file matches the active contract content. Its existing analysis and session decisions remain active.");
+      return;
+    }
+    if (activeSession) {
+      setReplacementPending(true);
+      setAnalysisError("Confirm contract replacement before analyzing a different document. Cancel preserves the active contract and its decisions.");
+      return;
+    }
     const payload = {
       filename: document.filename,
       pages: document.pages.map(({ pageNumber, text }) => ({ pageNumber, text })),
@@ -195,6 +219,7 @@ export function FilePicker({
     const timer = setTimeout(() => controller.abort(), AI_ANALYSIS_LIMITS.timeoutMs + 10_000);
     try {
       const key = await documentFingerprint(payload);
+      const sourceFingerprint = await documentContentFingerprint({ pages: payload.pages });
       if (currentRevision !== revision.current || controller.signal.aborted) return;
       let providerRequested = false;
       const result = await session.cache.run(key, async () => {
@@ -221,7 +246,7 @@ export function FilePicker({
         return parsed.data;
       });
       if (currentRevision === revision.current) {
-        session.activate(key, document.filename, document.pageCount, result);
+        session.activate(key, sourceFingerprint, document.filename, document.pageCount, result);
         setReuseMessage(providerRequested ? "Analysis ready. Operational intelligence is calculated locally." : "Existing analysis reused for this unchanged document. No AI request was sent.");
       }
     } catch (caught) {
@@ -296,6 +321,7 @@ export function FilePicker({
             void choose(
               event.target.files?.[0],
             );
+            event.target.value = "";
           }}
           tabIndex={-1}
         />
@@ -460,6 +486,25 @@ export function FilePicker({
         )}
       </div>
 
+      {document && isContract && replacementPending && session.current && (
+        <div className="inline-note" role="group" aria-labelledby="contract-replacement-heading">
+          <Icon name="alert" />
+          <div>
+            <strong id="contract-replacement-heading">Replace the active contract?</strong>
+            <p>Confirming removes the current contract analysis, accepted evidence associations, and human-review decisions from this in-memory session. Cancel keeps them unchanged. The replacement is not analyzed until you choose Analyze with AI.</p>
+            <div className="button-row">
+              <button className="button secondary" type="button" onClick={resetSelection}>Cancel</button>
+              <button className="button primary" type="button" onClick={() => {
+                session.replaceCurrent();
+                setReplacementPending(false);
+                setReuseMessage("The previous contract session and its evidence associations were removed. Review this document, then choose Analyze with AI.");
+                setAnalysisError("");
+              }}>Confirm replacement</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="privacy-note">
         <Icon name="shield" />
 
@@ -474,7 +519,7 @@ export function FilePicker({
               Analyze with AI, the filename and extracted page text are sent
               through our server to OpenAI. ClauseOps keeps the result in this
               workspace session memory, with no database storage or document analytics.
-              Results survive workspace navigation; refreshing or clearing the session removes them. OpenAI’s API
+              Results survive ordinary workspace navigation; a page refresh or tab close clears them, and a server restart may reload the app. OpenAI’s API
               data policies apply to transmitted text; this is not a zero-retention guarantee.
             </>
           ) : (
@@ -503,10 +548,12 @@ export function FilePicker({
             </span>
           </div>
 
-          <button type="button" className="button primary" disabled={analyzing} onClick={() => void analyze()}>
-            <Icon name="spark" size={18} />
-            {analyzing ? "Analysing document…" : analysis ? "Reuse current analysis" : "Analyze with AI"}
-          </button>
+          {contentFingerprint && hasSameDocumentContent(session.current?.contentFingerprint, contentFingerprint)
+            ? <p role="status" className="small-muted">Same extracted document content as the active contract; no replacement or re-analysis is needed.</p>
+            : !replacementPending && <button type="button" className="button primary" disabled={analyzing || Boolean(session.current)} onClick={() => void analyze()}>
+              <Icon name="spark" size={18} />
+              {analyzing ? "Analysing document…" : "Analyze with AI"}
+            </button>}
           <div aria-live="polite" aria-busy={analyzing}>
             {analyzing && <p className="inline-note" role="status">Analysing the extracted pages and checking supporting quotes. This can take up to two minutes. Your page preview remains available.</p>}
             {analysisError && <p className="error-message" role="alert">{analysisError}</p>}

@@ -26,4 +26,4 @@ export type GraphNode = { id: string; kind: "document" | "obligation" | "party" 
 export type GraphEdge = { from: string; to: string; relation: "contains" | "owned_by" | "has_deadline" | "requires_evidence" | "cites_quote" | "on_page" };
 export type ObligationGraph = { nodes: GraphNode[]; edges: GraphEdge[] };
 export type Intelligence = { obligations: IntelligentObligation[]; reviewQueue: IntelligentObligation[]; summary: IntelligenceSummary; asOf: string; evidence?: SessionEvidence[] };
-export type AnalysisSession = { key: string; filename: string; pageCount: number; analysis: VerifiedContractAnalysis; state: OperationalState };
+export type AnalysisSession = { key: string; contentFingerprint: string; filename: string; pageCount: number; analysis: VerifiedContractAnalysis; state: OperationalState };
