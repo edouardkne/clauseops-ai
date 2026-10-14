@@ -2,19 +2,48 @@ import type { VerifiedContractAnalysis, VerifiedObligation } from "../ai/contrac
 import type { Deadline, Intelligence, IntelligentObligation, OperationalState, OperationalStatus } from "./types";
 import { evidenceNeedsReview } from "../evidence/logic";
 
+const months = new Map([
+  ["january", 1], ["february", 2], ["march", 3], ["april", 4], ["may", 5], ["june", 6],
+  ["july", 7], ["august", 8], ["september", 9], ["october", 10], ["november", 11], ["december", 12],
+]);
+
+function validCalendarDate(year: number, month: number, day: number): string | null {
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return null;
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function parseExplicitCalendarDate(value: string): string | null {
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return validCalendarDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+
+  const written = value.match(/^(?:(?:no later than|by|on)\s+)?([a-z]+)\s+(\d{1,2}),?\s+(\d{4})\.?$/i);
+  if (!written) return null;
+  const month = months.get(written[1].toLowerCase());
+  return month ? validCalendarDate(Number(written[3]), month, Number(written[2])) : null;
+}
+
 export function normalizeDeadline(text: string | null, recurrence: string | null): Deadline {
-  if (!text?.trim()) return { kind: "missing", date: null, reason: null };
-  const value = text.trim();
-  // Deliberately narrow: no locale guesses, relative offsets, or inferred anchors.
-  const isISO = /^\d{4}-\d{2}-\d{2}$/.test(value);
-  const parsed = isISO ? new Date(`${value}T00:00:00Z`) : null;
-  const valid = parsed && Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-  if (valid && !recurrence?.trim()) return { kind: "date", date: value, reason: null };
+  const value = text?.trim() || "";
+  if (recurrence?.trim() || /\b(?:every|each)\s+(?:day|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|\b(?:daily|weekly|monthly|annually)\b/i.test(value)) {
+    return {
+      kind: "recurring", date: null,
+      reason: "A recurrence is present; confirm the applicable occurrence before using a calendar date. Original deadline wording is preserved.",
+    };
+  }
+  if (!value) return { kind: "missing", date: null, reason: null };
+  if (/\b(?:within\s+\d+\s+(?:business\s+)?(?:days?|weeks?|months?)\s+(?:of|after)\s+(?:the\s+)?(?:receipt|delivery|execution|effective date|approval|notice|request|completion|commencement)|(?:upon|after|following)\s+(?:the\s+)?(?:receipt|delivery|execution|effective date|approval|notice|request|completion|commencement))\b/i.test(value)) {
+    return {
+      kind: "event-dependent", date: null,
+      reason: "Deadline depends on an event or trigger; confirm the trigger date before calculating a calendar deadline. No date has been inferred.",
+    };
+  }
+  const date = parseExplicitCalendarDate(value);
+  if (date && !recurrence?.trim()) return { kind: "date", date, reason: null };
   return {
     kind: "unresolved", date: null,
-    reason: recurrence?.trim()
-      ? "A recurrence field is present; confirm the applicable occurrence before using a calendar date. Original deadline wording is preserved."
-      : "Deadline wording cannot safely be converted to a calendar date. Confirm the date or triggering event; no date has been inferred.",
+    reason: "Deadline wording cannot safely be converted to a calendar date. Confirm the date or triggering event; no date has been inferred.",
   };
 }
 

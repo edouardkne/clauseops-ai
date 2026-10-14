@@ -2,7 +2,7 @@ import type { VerifiedContractAnalysis, VerifiedObligation } from "../ai/contrac
 import type { SessionEvidence } from "../evidence/types";
 
 export type OperationalStatus = "Pending" | "Due Soon" | "Overdue" | "Missing Evidence" | "Needs Review" | "Completed";
-export type Deadline = { kind: "date" | "missing" | "unresolved"; date: string | null; reason: string | null };
+export type Deadline = { kind: "date" | "missing" | "unresolved" | "recurring" | "event-dependent"; date: string | null; reason: string | null };
 // User-accepted evidence references do not change the original AI output.
 // References are associations, not proof of validity, authenticity, or expiry.
 export type EvidenceLink = { evidenceId: string; obligationId: string };

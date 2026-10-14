@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { test } from "node:test";
 import type { AnalyzeContractRequest, VerifiedContractAnalysis, VerifiedObligation } from "../lib/ai/contract-analysis-schema";
 import { deriveIntelligence, normalizeDeadline } from "../lib/intelligence/engine";
@@ -80,16 +82,78 @@ test("missing information remains missing rather than generating dates or owners
   assert.deepEqual(o.evidenceRequired, []);
 });
 
-test("deadline normalization accepts only valid standalone ISO dates without recurrence", () => {
+test("deadline normalization accepts only valid standalone explicit dates", () => {
   assert.deepEqual(normalizeDeadline("2028-02-29", null), { kind: "date", date: "2028-02-29", reason: null });
-  for (const value of ["2026-02-29", "2026-13-01", "01/02/2026", "promptly", "within 30 days", "by 2026-10-20 if requested", "30 septembre 2026", "2026-10-20T12:00:00Z"]) {
+  for (const value of ["2026-02-29", "2026-13-01", "01/02/2026", "promptly", "within 30 days", "by 2026-10-20 if requested", "30 septembre 2026", "2026-10-20T12:00:00Z", "By February 29, 2026", "By October 32, 2026"]) {
     const result = normalizeDeadline(value, null);
     assert.equal(result.kind, "unresolved");
     assert.equal(result.date, null);
     assert.ok(result.reason);
   }
-  assert.equal(normalizeDeadline("2026-10-20", "Annually").kind, "unresolved");
+  assert.equal(normalizeDeadline("2026-10-20", "Annually").kind, "recurring");
+  assert.equal(normalizeDeadline(null, "Annually").kind, "recurring");
   assert.equal(normalizeDeadline(null, null).kind, "missing");
+});
+
+test("unambiguous written fixed dates normalize while recurring and event-dependent deadlines stay distinct", () => {
+  const examples = [
+    ["No later than October 1, 2026", "2026-10-01"],
+    ["By September 28, 2026", "2026-09-28"],
+    ["No later than October 3, 2026", "2026-10-03"],
+  ] as const;
+  for (const [wording, date] of examples) {
+    assert.deepEqual(normalizeDeadline(wording, null), { kind: "date", date, reason: null });
+  }
+
+  const recurring = normalizeDeadline("Every Monday by 17:00 UTC, beginning October 5, 2026", null);
+  assert.equal(recurring.kind, "recurring");
+  assert.equal(recurring.date, null);
+  assert.ok(recurring.reason);
+  assert.equal(normalizeDeadline("October 5, 2026", "Every Monday").kind, "recurring");
+
+  const eventDependent = normalizeDeadline("Within 30 days of receipt", null);
+  assert.equal(eventDependent.kind, "event-dependent");
+  assert.equal(eventDependent.date, null);
+  assert.ok(eventDependent.reason);
+
+  const conditional = normalizeDeadline("By October 1, 2026 if requested", null);
+  assert.equal(conditional.kind, "unresolved");
+  assert.equal(conditional.date, null);
+  assert.ok(conditional.reason);
+});
+
+test("written fixed-date normalization is timezone-independent and uses UTC calendar days", () => {
+  const modulePath = resolve(".qa/test-build/lib/intelligence/engine.js");
+  const script = `const { normalizeDeadline } = require(${JSON.stringify(modulePath)}); process.stdout.write(JSON.stringify(normalizeDeadline("No later than October 1, 2026", null)));`;
+  for (const timezone of ["Pacific/Honolulu", "Pacific/Kiritimati"]) {
+    const result = spawnSync(process.execPath, ["-e", script], {
+      encoding: "utf8",
+      env: { ...process.env, TZ: timezone },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), { kind: "date", date: "2026-10-01", reason: null });
+  }
+});
+
+test("fixed written dates change the calendar-deadline counter without erasing recurring review", () => {
+  const examples = analysis([
+    obligation({ id: "fixed-1", deadlineText: "No later than October 1, 2026" }),
+    obligation({ id: "fixed-2", deadlineText: "By September 28, 2026" }),
+    obligation({ id: "fixed-3", deadlineText: "No later than October 3, 2026" }),
+    obligation({ id: "recurring", deadlineText: "Every Monday by 17:00 UTC, beginning October 5, 2026" }),
+    ...Array.from({ length: 10 }, (_, index) => obligation({
+      id: `unspecified-${index + 1}`,
+      deadlineText: null,
+      recurrence: null,
+    })),
+  ]);
+  const result = deriveIntelligence(examples, state, today);
+  assert.equal(result.summary.total, 14);
+  assert.equal(result.summary.withoutClearDeadline, 11);
+  assert.equal(result.obligations.filter(o => o.deadline.kind === "date").length, 3);
+  assert.equal(result.obligations[3].deadline.kind, "recurring");
+  assert.equal(result.obligations[3].reviewRequired, true);
+  assert.equal(result.obligations[3].operationalStatus, "Needs Review");
 });
 
 test("status boundaries are deterministic with an injected UTC date", () => {

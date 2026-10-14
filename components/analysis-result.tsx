@@ -48,7 +48,7 @@ export function AnalysisResult() {
     </SectionCard>
     <SectionCard title="Intelligence Summary" subtitle="Deterministic counts · No provider calls">
       <dl className="analysis-counts">{counts.map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
-      <p className="small-muted intelligence-note">Deadline wording includes relative or ambiguous terms. A clear calendar deadline requires a valid standalone ISO date without recurrence. Missing information stays missing.</p>
+      <p className="small-muted intelligence-note">Clear calendar deadlines are normalized only from unambiguous explicit dates. Recurring schedules, event-dependent deadlines, and missing information remain distinct and are not assigned an occurrence date.</p>
       <p className="small-muted">{graph.nodes.length} graph nodes · {graph.edges.length} explicit relationships: document, obligation, party, deadline, evidence requirement, and source. No inferred dependencies.</p>
     </SectionCard>
     <SectionCard title="Human Review Queue" subtitle={`${intelligence.reviewQueue.length} obligations need attention · Deterministic review rules`}>
