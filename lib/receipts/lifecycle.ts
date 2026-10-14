@@ -24,6 +24,35 @@ export const UntrustedSubmissionAcknowledgementSchema = z.strictObject({
   acceptedAt: timestamp,
 });
 
+const gatewayWorkflowId = z.string().regex(/^0x[a-fA-F0-9]{64}$/);
+
+export const UntrustedCreGatewayAcknowledgementSchema = z.strictObject({
+  jsonrpc: z.literal("2.0"),
+  id: z.string().min(1).max(128),
+  method: z.literal("workflows.execute"),
+  result: z.strictObject({
+    workflow_id: gatewayWorkflowId,
+    workflow_execution_id: z.string().min(1).max(128),
+    status: z.literal("ACCEPTED"),
+  }),
+});
+export type UntrustedCreGatewayAcknowledgement = z.infer<typeof UntrustedCreGatewayAcknowledgementSchema>;
+
+export function parseUntrustedCreGatewayAcknowledgement(
+  input: unknown,
+  expectedRequestId: string,
+  expectedWorkflowId: string,
+): UntrustedCreGatewayAcknowledgement | null {
+  if (!/^[a-fA-F0-9]{64}$/.test(expectedWorkflowId)) return null;
+  const parsed = UntrustedCreGatewayAcknowledgementSchema.safeParse(input);
+  if (
+    !parsed.success ||
+    parsed.data.id !== expectedRequestId ||
+    parsed.data.result.workflow_id.slice(2).toLowerCase() !== expectedWorkflowId.toLowerCase()
+  ) return null;
+  return parsed.data;
+}
+
 export const UntrustedAuthenticatedCreResultMetadataSchema = z.strictObject({
   receiptId: z.string().regex(/^clauseops-v1-[a-f0-9]{64}$/),
   workflowId: identifier,

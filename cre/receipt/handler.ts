@@ -1,8 +1,7 @@
 
 import { type HTTPPayload, type Runtime } from "@chainlink/cre-sdk";
+import type { Config } from "./config";
 import { verifyWorkflowReceipt } from "./verify";
-
-type Config = Record<string, never>;
 
 export async function onReceipt(
   _runtime: Runtime<Config>,

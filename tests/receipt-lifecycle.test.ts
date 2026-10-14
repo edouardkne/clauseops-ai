@@ -3,11 +3,13 @@ import { createHash } from "node:crypto";
 import { test } from "node:test";
 import {
   createLocalReceiptPreview,
+  parseUntrustedCreGatewayAcknowledgement,
   parseUntrustedCreVerificationResult,
   transitionVerificationState,
   UntrustedAuthenticatedCreResultMetadataSchema,
   UntrustedAttestationMetadataSchema,
   UntrustedCreSimulationMetadataSchema,
+  UntrustedCreGatewayAcknowledgementSchema,
   UntrustedSubmissionAcknowledgementSchema,
 } from "../lib/receipts/lifecycle";
 import { sealReceipt, statuses, type ComplianceReceipt } from "../lib/receipts/core";
@@ -73,11 +75,12 @@ test("local integrity transition rejects mismatched, tampered, and malformed rec
   }, digest), /Unsupported verification lifecycle transition/);
 });
 
-test("simulation, submission, pending, result, and attestation claims have no enabled transition", async () => {
+test("gateway acknowledgements and other external claims have no enabled lifecycle transition", async () => {
   const value = await receipt();
   const preview = createLocalReceiptPreview(value);
   const unsupportedClaims = [
     { type: "cre-simulation-completed", result: { valid: true, scope: "payload-integrity-only", errors: [], receiptId: value.receiptId } },
+    { type: "gateway-acknowledged", status: "ACCEPTED", workflowId: "workflow-1", runId: "run-1" },
     { type: "receipt-submitted", submissionId: "made-up", receiptId: value.receiptId },
     { type: "verification-pending", submissionId: "made-up", receiptId: value.receiptId },
     { type: "authenticated-cre-result", result: { valid: true, scope: "payload-integrity-only", errors: [], receiptId: value.receiptId } },
@@ -125,6 +128,49 @@ test("submission, authenticated-result, attestation, and simulation metadata rej
   assert.equal(UntrustedCreSimulationMetadataSchema.safeParse({
     mode: "production", workflowName: "receipt-check", completedAt: checkedAt, result: validResult,
   }).success, false);
+});
+
+test("gateway ACCEPTED acknowledgements are strict, correlated, and not verification results", async () => {
+  const value = await receipt();
+  const workflowId = "a".repeat(64);
+  const acknowledgement = {
+    jsonrpc: "2.0",
+    id: "synthetic-request-1",
+    method: "workflows.execute",
+    result: {
+      workflow_id: `0x${workflowId}`,
+      workflow_execution_id: "synthetic-execution-1",
+      status: "ACCEPTED",
+    },
+  };
+
+  assert.deepEqual(
+    parseUntrustedCreGatewayAcknowledgement(acknowledgement, "synthetic-request-1", workflowId),
+    acknowledgement,
+  );
+  assert.equal(
+    parseUntrustedCreGatewayAcknowledgement(acknowledgement, "different-request", workflowId),
+    null,
+  );
+  assert.equal(
+    parseUntrustedCreGatewayAcknowledgement(acknowledgement, "synthetic-request-1", "b".repeat(64)),
+    null,
+  );
+  assert.equal(
+    UntrustedCreGatewayAcknowledgementSchema.safeParse({
+      ...acknowledgement,
+      result: { ...acknowledgement.result, status: "VERIFIED" },
+    }).success,
+    false,
+  );
+  assert.equal(
+    UntrustedCreGatewayAcknowledgementSchema.safeParse({
+      ...acknowledgement,
+      result: { ...acknowledgement.result, valid: true },
+    }).success,
+    false,
+  );
+  assert.equal(parseUntrustedCreVerificationResult(acknowledgement, value.receiptId), null);
 });
 
 test("receipt payload and local lifecycle state contain no private document content", async () => {
