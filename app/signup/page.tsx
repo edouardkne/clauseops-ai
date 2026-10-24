@@ -27,60 +27,77 @@ export default async function SignupPage({
         </p>
 
         {message && (
-          <p role="alert" className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          <p
+            role="alert"
+            className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+          >
             {message === "invalid"
-              ? "Enter a valid email and a password of at least 8 characters."
-              : "Registration could not be completed. Please try again."}
+              ? "Please enter a valid email, a full name, and a password of 8–128 characters."
+              : message === "config"
+                ? "Registration is temporarily unavailable. Please try again later."
+                : "Registration could not be completed. Please try again."}
           </p>
         )}
 
-<div>
-  <label htmlFor="full_name" className="block text-sm font-medium text-slate-800">
-    Full name
-  </label>
-  <input
-    id="full_name"
-    name="full_name"
-    type="text"
-    maxLength={120}
-    autoComplete="name"
-    required
-    className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
-  />
-</div>
-
-<div>
-  <label htmlFor="organization" className="block text-sm font-medium text-slate-800">
-    Organization (optional)
-  </label>
-  <input
-    id="organization"
-    name="organization"
-    type="text"
-    maxLength={160}
-    autoComplete="organization"
-    className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
-  />
-</div>
-
-<div>
-  <label htmlFor="professional_role" className="block text-sm font-medium text-slate-800">
-    Professional role (optional)
-  </label>
-  <input
-    id="professional_role"
-    name="professional_role"
-    type="text"
-    maxLength={120}
-    autoComplete="organization-title"
-    placeholder="e.g. Legal Officer, Compliance Analyst"
-    className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
-  />
-</div>
-
         <form action={signUp} className="mt-7 space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-800">
+            <label
+              htmlFor="full_name"
+              className="block text-sm font-medium text-slate-800"
+            >
+              Full name
+            </label>
+            <input
+              id="full_name"
+              name="full_name"
+              type="text"
+              maxLength={120}
+              autoComplete="name"
+              required
+              className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="organization"
+              className="block text-sm font-medium text-slate-800"
+            >
+              Organization (optional)
+            </label>
+            <input
+              id="organization"
+              name="organization"
+              type="text"
+              maxLength={160}
+              autoComplete="organization"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="professional_role"
+              className="block text-sm font-medium text-slate-800"
+            >
+              Professional role (optional)
+            </label>
+            <input
+              id="professional_role"
+              name="professional_role"
+              type="text"
+              maxLength={120}
+              autoComplete="organization-title"
+              placeholder="e.g. Legal Officer, Compliance Analyst"
+              className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-slate-800"
+            >
               Email address
             </label>
             <input
@@ -94,7 +111,10 @@ export default async function SignupPage({
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-800">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-slate-800"
+            >
               Password
             </label>
             <input
@@ -102,12 +122,13 @@ export default async function SignupPage({
               name="password"
               type="password"
               minLength={8}
+              maxLength={128}
               required
               autoComplete="new-password"
               className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900"
             />
             <p className="mt-2 text-xs text-slate-500">
-              Use at least 8 characters.
+              Use between 8 and 128 characters.
             </p>
           </div>
 
