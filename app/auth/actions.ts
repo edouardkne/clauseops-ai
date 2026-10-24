@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 
 // ============================================
 // CLAUSEOPS AI — AUTHENTICATION SERVER ACTIONS
-// Supabase Auth + Next.js 16
 // ============================================
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,7 +29,6 @@ export async function signIn(formData: FormData) {
   const email = getEmail(formData);
   const password = String(formData.get("password") ?? "");
 
-  // Validate input
   if (!email || !password) {
     redirect("/login?message=required");
   }
@@ -41,21 +39,16 @@ export async function signIn(formData: FormData) {
 
   const supabase = await createClient();
 
-  const { data, error } =
-    await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  // Never expose detailed authentication errors
   if (error || !data.session) {
     redirect("/login?message=invalid");
   }
 
-  // Refresh authenticated server components
   revalidatePath("/", "layout");
-
-  // Continue to the protected workspace
   redirect("/contracts/upload");
 }
 
@@ -64,11 +57,9 @@ export async function signIn(formData: FormData) {
 // ============================================
 
 export async function signUp(formData: FormData) {
-  // Account credentials
   const email = getEmail(formData);
   const password = String(formData.get("password") ?? "");
 
-  // Personal information
   const fullName = String(
     formData.get("full_name") ?? ""
   ).trim();
@@ -81,7 +72,6 @@ export async function signUp(formData: FormData) {
     formData.get("professional_role") ?? ""
   ).trim();
 
-  // Validate account credentials
   if (
     !isValidEmail(email) ||
     password.length < 8 ||
@@ -90,7 +80,6 @@ export async function signUp(formData: FormData) {
     redirect("/signup?message=invalid");
   }
 
-  // Validate personal information
   if (
     !fullName ||
     fullName.length > 120 ||
@@ -100,19 +89,43 @@ export async function signUp(formData: FormData) {
     redirect("/signup?message=invalid");
   }
 
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+  if (!configuredAppUrl && process.env.NODE_ENV === "production") {
+    redirect("/signup?message=config");
+  }
+
+  const appUrl = configuredAppUrl || "http://localhost:3000";
+
+  let confirmationUrl: string;
+
+  try {
+    const origin = new URL(appUrl);
+
+    if (
+      !["http:", "https:"].includes(origin.protocol) ||
+      (process.env.NODE_ENV === "production" &&
+        origin.protocol !== "https:")
+    ) {
+      redirect("/signup?message=config");
+    }
+
+    confirmationUrl = new URL("/auth/callback", origin).toString();
+  } catch (error) {
+    // Next.js redirects throw internally; do not swallow them.
+    if (
+      error instanceof Error &&
+      "digest" in error &&
+      String(error.digest).startsWith("NEXT_REDIRECT")
+    ) {
+      throw error;
+    }
+
+    redirect("/signup?message=config");
+  }
+
   const supabase = await createClient();
 
-  // Fixed application origin, not taken from user input
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    "http://localhost:3000";
-
-  const confirmationUrl = new URL(
-    "/auth/callback",
-    appUrl
-  ).toString();
-
-  // Create account and store profile metadata
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -130,14 +143,11 @@ export async function signUp(formData: FormData) {
     redirect("/signup?message=failed");
   }
 
-  // If email confirmation is disabled and Supabase
-  // creates an active session immediately.
   if (data.session) {
     revalidatePath("/", "layout");
     redirect("/contracts/upload");
   }
 
-  // Email confirmation required
   redirect("/login?message=check-email");
 }
 
@@ -150,8 +160,6 @@ export async function signOut() {
 
   await supabase.auth.signOut();
 
-  // Clear authenticated server-rendered state
   revalidatePath("/", "layout");
-
   redirect("/login");
 }
